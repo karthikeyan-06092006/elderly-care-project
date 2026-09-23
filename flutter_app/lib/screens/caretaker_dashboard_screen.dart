@@ -13,6 +13,7 @@ import 'caretaker_social_screen.dart';
 import 'voice_assistant_screen.dart';
 import 'reminders_screen.dart';
 import '../services/profile_storage_service.dart';
+import 'add_patient_screen.dart';
 
 class CaretakerDashboardScreen extends StatefulWidget {
   final UserSession session;
@@ -113,6 +114,18 @@ class _CaretakerDashboardScreenState extends State<CaretakerDashboardScreen> {
     if (scannedCode != null && scannedCode.isNotEmpty) {
       if (!mounted) return;
       _showConfirmLinkDialog(scannedCode);
+    }
+  }
+
+  Future<void> _openAddPatient() async {
+    final added = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddPatientScreen(session: widget.session),
+      ),
+    );
+    if (added == true && mounted) {
+      _fetchLinkedPatients();
     }
   }
 
@@ -312,21 +325,6 @@ class _CaretakerDashboardScreenState extends State<CaretakerDashboardScreen> {
         foregroundColor: Colors.white,
         elevation: 2,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.mic_rounded),
-            tooltip: "Voice Assistant",
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => VoiceAssistantScreen(
-                    isBengali: false,
-                    userName: widget.session.name,
-                  ),
-                ),
-              );
-            },
-          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: "Refresh Patients",
@@ -541,24 +539,43 @@ class _CaretakerDashboardScreenState extends State<CaretakerDashboardScreen> {
 
               // Section Title
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.elderly_rounded, color: Color(0xFF00695C), size: 24),
-                      const SizedBox(width: 8),
-                      Text(
-                        "Assigned Patients (${_patients.length})",
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF263238),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.elderly_rounded, color: Color(0xFF00695C), size: 24),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            "Assigned Patients (${_patients.length})",
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF263238),
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   TextButton.icon(
+                    onPressed: _openAddPatient,
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF00796B),
+                      backgroundColor: const Color(0xFFE0F2F1),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+                    label: const Text("Add Patient"),
+                  ),
+                  const SizedBox(width: 4),
+                  TextButton.icon(
                     onPressed: _openQrScanner,
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                    ),
                     icon: const Icon(Icons.add, size: 18),
                     label: const Text("Link New"),
                   ),
@@ -699,6 +716,18 @@ class _CaretakerDashboardScreenState extends State<CaretakerDashboardScreen> {
             ),
             icon: const Icon(Icons.camera_alt_rounded),
             label: const Text("Scan Patient QR Code"),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: _openAddPatient,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF00796B),
+              side: const BorderSide(color: Color(0xFF00796B)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            icon: const Icon(Icons.person_add_alt_1_rounded),
+            label: const Text("Add New Patient"),
           ),
         ],
       ),

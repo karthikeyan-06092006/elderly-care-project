@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
@@ -11,7 +12,9 @@ import 'word_recall_game_screen.dart';
 import '../services/api_service.dart';
 import '../services/call_service.dart';
 import '../services/app_settings.dart';
+import '../services/daily_streak_service.dart';
 import 'caretakers_screen.dart';
+import 'daily_streak_card.dart';
 import 'social_hub_screen.dart';
 import 'voice_assistant_screen.dart';
 import 'reminders_screen.dart';
@@ -35,6 +38,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   late PatientProfile _currentProfile;
   late bool _isBengali;
   String _currentTheme = "Light";
+  Timer? _midnightTimer;
 
   @override
   void initState() {
@@ -42,6 +46,8 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     _currentProfile = widget.profile;
     _isBengali = widget.isBengali;
     _currentTheme = AppSettings.instance.theme;
+    DailyStreakService.instance.load();
+    _scheduleMidnightRefresh();
     _fetchCaretakersFromDb();
     AlarmService.instance.startRoutineChecker(
       context: context,
@@ -54,6 +60,25 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   void dispose() {
     AlarmService.instance.stopRoutineChecker();
     super.dispose();
+  }
+
+  @override
+  void dispose() {
+    _midnightTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleMidnightRefresh() {
+    _midnightTimer?.cancel();
+    final now = DateTime.now();
+    final nextMidnight = DateTime(now.year, now.month, now.day + 1);
+    final delay = nextMidnight.difference(now);
+    _midnightTimer = Timer(delay, () {
+      if (mounted) {
+        setState(() {});
+      }
+      _scheduleMidnightRefresh();
+    });
   }
 
   Future<void> _fetchCaretakersFromDb() async {
@@ -387,16 +412,37 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                       ],
                     ),
                   ),
-                  // Voice Companion Quick Button
-                  IconButton.filledTonal(
-                    icon: const Icon(Icons.mic_rounded, color: AppTheme.primary, size: 26),
-                    onPressed: _openVoiceAssistant,
-                    tooltip: "Voice Assistant",
-                  ),
                 ],
               ),
             ),
             const Divider(height: 1),
+
+            // Fixed Emergency SOS Banner (always visible at top)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: ElevatedButton.icon(
+                onPressed: _triggerEmergencyDialog,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD32F2F),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                icon: const Icon(Icons.emergency_rounded, size: 24, color: Colors.white),
+                label: Text(
+                  isBn ? "🚨 জরুরি সাহায্য (SOS Call)" : "🚨 Emergency Assistance (SOS)",
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ),
 
             // Scrollable Content
             Expanded(
@@ -405,6 +451,13 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Daily Streak Game Card
+                    DailyStreakCard(
+                      userKey: _currentProfile.email,
+                      isBengali: _isBengali,
+                    ),
+                    const SizedBox(height: 20),
+
                     // 2. Welcome Banner with Patient's Name
                     Container(
                       padding: const EdgeInsets.all(20),
@@ -706,7 +759,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               ),
             ),
 
-            // 4. Bottom Emergency SOS Button (Bright Red, High-Contrast for Seniors)
+            // Voice Assistant Quick Button (now at the bottom)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               decoration: BoxDecoration(
@@ -719,10 +772,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                   ),
                 ],
               ),
-              child: ElevatedButton(
-                onPressed: _triggerEmergencyDialog,
+              child: ElevatedButton.icon(
+                onPressed: _openVoiceAssistant,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD32F2F), // Bright Red
+                  backgroundColor: AppTheme.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 18),
                   elevation: 4,
@@ -730,27 +783,14 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                     borderRadius: BorderRadius.circular(18),
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(
-                        color: Colors.white24,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.emergency_rounded, size: 28, color: Colors.white),
-                    ),
-                    const SizedBox(width: 14),
-                    Text(
-                      isBn ? "🚨 জরুরি সাহায্য (SOS Call)" : "🚨 Emergency Assistance (SOS)",
-                      style: const TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ],
+                icon: const Icon(Icons.mic_rounded, size: 28, color: Colors.white),
+                label: Text(
+                  isBn ? "ভয়েস সহায়ক" : "Voice Assistant",
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
             ),
