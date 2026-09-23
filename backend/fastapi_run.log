@@ -1,0 +1,5 @@
+[DB] Oracle 11g not available (ORA-01017: invalid username/password; logon denied
+Help: https://docs.oracle.com/error-help/db/ora-01017/). Using Local SQLite Mirror for Development at: C:\ElderlyCareProject\elderly-care-project\backend\app\db\server_mirror.db
+[FCM] Running in simulated notification mode (No service account file specified).
+INFO:     127.0.0.1:61920 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59432 - "GET / HTTP/1.1" 200 OK
