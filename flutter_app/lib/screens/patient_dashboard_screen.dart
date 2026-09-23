@@ -59,11 +59,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   @override
   void dispose() {
     AlarmService.instance.stopRoutineChecker();
-    super.dispose();
-  }
-
-  @override
-  void dispose() {
     _midnightTimer?.cancel();
     super.dispose();
   }
