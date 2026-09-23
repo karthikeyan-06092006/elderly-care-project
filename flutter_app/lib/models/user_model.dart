@@ -18,6 +18,7 @@ class PatientProfile {
   String email;
   String phone;
   int age;
+  String dateOfBirth;
   String state;
   String district;
   String registeredDate;
@@ -32,6 +33,7 @@ class PatientProfile {
     required this.email,
     required this.phone,
     this.age = 70,
+    this.dateOfBirth = '',
     this.state = "Assam",
     this.district = "Kamrup Metro",
     required this.registeredDate,
@@ -47,6 +49,7 @@ class PatientProfile {
     String? email,
     String? phone,
     int? age,
+    String? dateOfBirth,
     String? state,
     String? district,
     String? registeredDate,
@@ -62,6 +65,7 @@ class PatientProfile {
       email: email ?? this.email,
       phone: phone ?? this.phone,
       age: age ?? this.age,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
       state: state ?? this.state,
       district: district ?? this.district,
       registeredDate: registeredDate ?? this.registeredDate,
@@ -79,6 +83,7 @@ class PatientProfile {
       email: session.email,
       phone: session.phone.isNotEmpty ? session.phone : "",
       age: session.age > 0 ? session.age : 70,
+      dateOfBirth: session.dateOfBirth,
       state: session.state.isNotEmpty ? session.state : "Assam",
       district: session.district.isNotEmpty ? session.district : "Kamrup Metro",
       registeredDate: session.registeredDate.isNotEmpty ? session.registeredDate : "Today",
@@ -99,6 +104,7 @@ class PatientProfile {
       email: email.isNotEmpty ? email : "patient@example.com",
       phone: phone.isNotEmpty ? phone : "",
       age: 72,
+      dateOfBirth: "15/04/1954",
       state: "Assam",
       district: "Kamrup Metro",
       registeredDate: "19 September 2026",
@@ -121,6 +127,7 @@ class UserSession {
   final String phone;
   final String role; // 'PATIENT', 'CARETAKER', 'HEALTHCARE_WORKER', 'ADMIN'
   final int age;
+  final String dateOfBirth;
   final String gender;
   final String state;
   final String district;
@@ -142,6 +149,7 @@ class UserSession {
     required this.phone,
     required this.role,
     this.age = 0,
+    this.dateOfBirth = '',
     this.gender = '',
     this.state = '',
     this.district = '',
@@ -171,6 +179,7 @@ class UserSession {
       phone: json['phone'] ?? '',
       role: json['role'] ?? 'PATIENT',
       age: json['age'] is int ? json['age'] : int.tryParse(json['age']?.toString() ?? '0') ?? 0,
+      dateOfBirth: json['dateOfBirth'] ?? '',
       gender: json['gender'] ?? '',
       state: json['state'] ?? '',
       district: json['district'] ?? '',

@@ -25,7 +25,7 @@ public class AuthController {
 
     @PostMapping("/send-otp")
     public ResponseEntity<ApiResponse> sendOtp(@RequestBody SendOtpRequest request) {
-        ApiResponse response = otpService.generateAndSendPhoneOtp(request);
+        ApiResponse response = otpService.generateAndSendEmailOtp(request);
         if (response.isSuccess()) {
             return ResponseEntity.ok(response);
         } else {
@@ -35,9 +35,9 @@ public class AuthController {
 
     @PostMapping("/verify-otp")
     public ResponseEntity<ApiResponse> verifyOtp(@RequestBody VerifyOtpRequest request) {
-        String identifier = request.getPhone() != null && !request.getPhone().trim().isEmpty()
-                ? request.getPhone().trim()
-                : (request.getEmail() != null ? request.getEmail().trim() : "");
+        String identifier = request.getEmail() != null && !request.getEmail().trim().isEmpty()
+                ? request.getEmail().trim()
+                : (request.getPhone() != null ? request.getPhone().trim() : "");
         ApiResponse response = otpService.verifyPhoneOtp(identifier, request.getOtp());
         if (response.isSuccess()) {
             return ResponseEntity.ok(response);

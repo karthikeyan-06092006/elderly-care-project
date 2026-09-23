@@ -13,13 +13,28 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<User, String> {
     
     @Query("SELECT u FROM User u WHERE LOWER(u.email) = LOWER(:email)")
-    Optional<User> findByEmailIgnoreCase(@Param("email") String email);
+    List<User> findListByEmailIgnoreCase(@Param("email") String email);
+
+    default Optional<User> findByEmailIgnoreCase(String email) {
+        List<User> list = findListByEmailIgnoreCase(email);
+        return list.isEmpty() ? Optional.empty() : Optional.of(list.get(0));
+    }
 
     @Query("SELECT u FROM User u WHERE u.phoneNumber = :phone")
-    Optional<User> findByPhoneNumber(@Param("phone") String phone);
+    List<User> findListByPhoneNumber(@Param("phone") String phone);
+
+    default Optional<User> findByPhoneNumber(String phone) {
+        List<User> list = findListByPhoneNumber(phone);
+        return list.isEmpty() ? Optional.empty() : Optional.of(list.get(0));
+    }
 
     @Query("SELECT u FROM User u WHERE LOWER(u.email) = LOWER(:identifier) OR u.phoneNumber = :identifier")
-    Optional<User> findByEmailOrPhone(@Param("identifier") String identifier);
+    List<User> findListByEmailOrPhone(@Param("identifier") String identifier);
+
+    default Optional<User> findByEmailOrPhone(String identifier) {
+        List<User> list = findListByEmailOrPhone(identifier);
+        return list.isEmpty() ? Optional.empty() : Optional.of(list.get(0));
+    }
 
     @Query("SELECT u FROM User u WHERE UPPER(u.qrCodeToken) = UPPER(:qrCodeToken)")
     Optional<User> findByQrCodeTokenIgnoreCase(@Param("qrCodeToken") String qrCodeToken);

@@ -22,6 +22,7 @@ public class RegisterRequest {
     private String role; // "PATIENT", "CARETAKER", "HEALTHCARE_WORKER", "ADMIN"
 
     private Integer age;
+    private String dateOfBirth;
     private String gender;
     private String state;
     private String district;
@@ -173,5 +174,13 @@ public class RegisterRequest {
 
     public void setIdProofUrl(String idProofUrl) {
         this.idProofUrl = idProofUrl;
+    }
+
+    public String getDateOfBirth() {
+        return dateOfBirth;
+    }
+
+    public void setDateOfBirth(String dateOfBirth) {
+        this.dateOfBirth = dateOfBirth;
     }
 }

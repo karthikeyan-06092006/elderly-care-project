@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../theme/app_theme.dart';
@@ -340,6 +340,14 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
                       icon: Icons.phone_rounded,
                       label: isBn ? "ফোন নম্বর" : "Phone Number",
                       value: _currentProfile.phone,
+                    ),
+                    const Divider(height: 24),
+                    _buildDetailItem(
+                      icon: Icons.cake_rounded,
+                      label: isBn ? "জন্ম তারিখ ও বয়স" : "Date of Birth & Age",
+                      value: _currentProfile.dateOfBirth.isNotEmpty
+                          ? "${_currentProfile.dateOfBirth} (${_currentProfile.age} yrs)"
+                          : "${_currentProfile.age} yrs",
                     ),
                     const Divider(height: 24),
                     _buildDetailItem(

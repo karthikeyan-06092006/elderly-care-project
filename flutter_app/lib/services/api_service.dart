@@ -62,10 +62,10 @@ class ApiService {
     'Accept': 'application/json',
   };
 
-  /// Send SMS OTP to user's phone number (with IMR validation for Doctors/Nurses)
-  static Future<ApiResult<String>> sendPhoneOtp({
-    required String phone,
-    String? email,
+  /// Send Email OTP to user's email address (with statutory license pre-check for Healthcare Workers)
+  static Future<ApiResult<String>> sendEmailOtp({
+    required String email,
+    String? phone,
     String? role,
     String? registrationNumber,
     String? stateCouncil,
@@ -79,8 +79,8 @@ class ApiService {
             url,
             headers: _headers,
             body: jsonEncode({
-              'phone': phone.trim(),
-              'email': email?.trim(),
+              'email': email.trim(),
+              'phone': phone?.trim(),
               'role': role,
               'registrationNumber': registrationNumber?.trim(),
               'stateCouncil': stateCouncil?.trim(),
@@ -90,7 +90,7 @@ class ApiService {
           .timeout(const Duration(seconds: 15));
 
       final body = jsonDecode(utf8.decode(response.bodyBytes));
-      final message = body['message'] ?? 'Unable to send SMS OTP';
+      final message = body['message'] ?? 'Unable to send OTP';
       final String? otpCode = body['data']?.toString();
 
       if (response.statusCode == 200 && (body['success'] == true)) {
@@ -106,8 +106,25 @@ class ApiService {
     }
   }
 
+  /// Backward compatible sendPhoneOtp
+  static Future<ApiResult<String>> sendPhoneOtp({
+    required String phone,
+    String? email,
+    String? role,
+    String? registrationNumber,
+    String? stateCouncil,
+    String? name,
+  }) => sendEmailOtp(
+        email: email ?? phone,
+        phone: phone,
+        role: role,
+        registrationNumber: registrationNumber,
+        stateCouncil: stateCouncil,
+        name: name,
+      );
+
   /// Backward compatible sendOtp
-  static Future<ApiResult<String>> sendOtp(String email) => sendPhoneOtp(phone: email, email: email);
+  static Future<ApiResult<String>> sendOtp(String email) => sendEmailOtp(email: email);
 
   /// Talk to the AI companion (Spring Boot forwards to the FastAPI chat backend)
   static Future<String?> aiChat({
@@ -141,8 +158,8 @@ class ApiService {
     }
   }
 
-  /// Verify 6-digit SMS OTP token entered by user
-  static Future<ApiResult<void>> verifyPhoneOtp({required String phone, required String otp}) async {
+  /// Verify 6-digit Email OTP token entered by user
+  static Future<ApiResult<void>> verifyEmailOtp({required String email, required String otp}) async {
     try {
       final activeUrl = await getWorkingBaseUrl();
       final url = Uri.parse('$activeUrl/verify-otp');
@@ -151,7 +168,7 @@ class ApiService {
             url,
             headers: _headers,
             body: jsonEncode({
-              'phone': phone.trim(),
+              'email': email.trim(),
               'otp': otp.trim(),
             }),
           )
@@ -173,16 +190,21 @@ class ApiService {
     }
   }
 
-  /// Backward compatible verifyOtp
-  static Future<ApiResult<void>> verifyOtp(String email, String otp) => verifyPhoneOtp(phone: email, otp: otp);
+  /// Backward compatible verifyPhoneOtp
+  static Future<ApiResult<void>> verifyPhoneOtp({required String phone, required String otp}) =>
+      verifyEmailOtp(email: phone, otp: otp);
 
-  /// Extended register with demographic, location, and healthcare credentials
+  /// Backward compatible verifyOtp
+  static Future<ApiResult<void>> verifyOtp(String email, String otp) => verifyEmailOtp(email: email, otp: otp);
+
+  /// Extended register with demographic, location, date of birth, and healthcare credentials
   static Future<ApiResult<UserSession>> register({
-    String? email,
+    required String email,
     required String password,
     required String name,
-    required String phone,
+    String? phone,
     required String role,
+    String? dateOfBirth,
     int? age,
     String? gender,
     String? state,
@@ -204,11 +226,12 @@ class ApiService {
             url,
             headers: _headers,
             body: jsonEncode({
-              'email': email?.trim() ?? '',
+              'email': email.trim(),
               'password': password,
               'name': name.trim(),
-              'phone': phone.trim(),
+              'phone': phone?.trim() ?? '',
               'role': role.toUpperCase(),
+              'dateOfBirth': dateOfBirth,
               'age': age,
               'gender': gender,
               'state': state,

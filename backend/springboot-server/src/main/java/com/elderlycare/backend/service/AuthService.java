@@ -57,21 +57,21 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest req) {
-        String cleanPhone = req.getPhone() != null ? req.getPhone().trim() : "";
-        if (cleanPhone.isEmpty()) {
-            return AuthResponse.error("Phone number is required for registration.");
-        }
-
         String cleanEmail = (req.getEmail() != null && !req.getEmail().trim().isEmpty())
                 ? req.getEmail().trim().toLowerCase()
-                : cleanPhone.replaceAll("[^0-9]", "") + "@cognitivecare.user";
-
-        // 1. Check if phone number already exists
-        if (userRepository.findByPhoneNumber(cleanPhone).isPresent()) {
-            return AuthResponse.error("Phone number " + cleanPhone + " is already registered. Please log in.");
+                : "";
+        if (cleanEmail.isEmpty()) {
+            return AuthResponse.error("Email address is required for registration.");
         }
-        if (req.getEmail() != null && !req.getEmail().trim().isEmpty() && userRepository.findByEmailIgnoreCase(cleanEmail).isPresent()) {
-            return AuthResponse.error("Email is already registered. Please log in instead.");
+
+        String cleanPhone = req.getPhone() != null ? req.getPhone().trim() : "";
+
+        // 1. Check if email already exists
+        if (userRepository.findByEmailIgnoreCase(cleanEmail).isPresent()) {
+            return AuthResponse.error("Email " + cleanEmail + " is already registered. Please log in.");
+        }
+        if (!cleanPhone.isEmpty() && userRepository.findByPhoneNumber(cleanPhone).isPresent()) {
+            return AuthResponse.error("Phone number " + cleanPhone + " is already registered. Please log in.");
         }
 
         // 2. Format role
@@ -95,10 +95,32 @@ public class AuthService {
         // 4. Hash password with BCrypt
         String passwordHash = passwordEncoder.encode(req.getPassword().trim());
 
-        // 5. Verification status
+        // 5. Verification status (Healthcare workers must be manually verified by Admin)
         String verificationStatus = role.equals("HEALTHCARE_WORKER") ? "PENDING" : "APPROVED";
 
-        // 6. Create and save user
+        // 6. Compute age if dateOfBirth is given
+        Integer computedAge = req.getAge();
+        String dob = req.getDateOfBirth() != null ? req.getDateOfBirth().trim() : null;
+        if ((computedAge == null || computedAge == 0) && dob != null && !dob.isEmpty()) {
+            try {
+                // Support yyyy-MM-dd or dd-MM-yyyy or dd/MM/yyyy
+                java.time.LocalDate birthDate;
+                if (dob.contains("/")) {
+                    String[] parts = dob.split("/");
+                    if (parts.length == 3) {
+                        birthDate = java.time.LocalDate.of(Integer.parseInt(parts[2]), Integer.parseInt(parts[1]), Integer.parseInt(parts[0]));
+                    } else {
+                        birthDate = java.time.LocalDate.parse(dob);
+                    }
+                } else {
+                    birthDate = java.time.LocalDate.parse(dob);
+                }
+                computedAge = java.time.Period.between(birthDate, java.time.LocalDate.now()).getYears();
+            } catch (Exception ignored) {
+            }
+        }
+
+        // 7. Create and save user
         LocalDateTime now = LocalDateTime.now();
         User user = new User();
         user.setUserId(userId);
@@ -107,7 +129,8 @@ public class AuthService {
         user.setRole(role);
         user.setFullName(req.getName().trim());
         user.setPhoneNumber(cleanPhone);
-        user.setAge(req.getAge());
+        user.setDateOfBirth(dob);
+        user.setAge(computedAge);
         user.setGender(req.getGender());
         user.setState(req.getState());
         user.setDistrict(req.getDistrict());
@@ -131,7 +154,7 @@ public class AuthService {
         AuthResponse resp = new AuthResponse();
         resp.setSuccess(true);
         resp.setMessage(role.equals("HEALTHCARE_WORKER")
-                ? "Registration submitted for verification! Your credentials will be reviewed by the Administrator."
+                ? "Registration submitted for manual Admin verification! Your credentials will be reviewed by the Administrator."
                 : "Account created successfully!");
         resp.setToken(dummyJwtToken);
         resp.setUserId(user.getUserId());
@@ -139,6 +162,7 @@ public class AuthService {
         resp.setName(user.getFullName());
         resp.setPhone(user.getPhoneNumber());
         resp.setRole(user.getRole());
+        resp.setDateOfBirth(user.getDateOfBirth());
         resp.setAge(user.getAge());
         resp.setGender(user.getGender());
         resp.setState(user.getState());
@@ -192,6 +216,7 @@ public class AuthService {
         resp.setName(user.getFullName());
         resp.setPhone(user.getPhoneNumber());
         resp.setRole(user.getRole());
+        resp.setDateOfBirth(user.getDateOfBirth());
         resp.setAge(user.getAge());
         resp.setGender(user.getGender());
         resp.setState(user.getState());

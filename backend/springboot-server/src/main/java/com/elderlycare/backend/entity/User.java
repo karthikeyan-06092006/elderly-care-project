@@ -29,6 +29,9 @@ public class User {
     @Column(name = "AGE")
     private Integer age;
 
+    @Column(name = "DATE_OF_BIRTH", length = 30)
+    private String dateOfBirth;
+
     @Column(name = "GENDER", length = 20)
     private String gender;
 
@@ -264,5 +267,13 @@ public class User {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getDateOfBirth() {
+        return dateOfBirth;
+    }
+
+    public void setDateOfBirth(String dateOfBirth) {
+        this.dateOfBirth = dateOfBirth;
     }
 }
