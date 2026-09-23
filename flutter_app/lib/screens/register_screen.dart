@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
+import '../services/profile_storage_service.dart';
 import 'login_screen.dart';
 import 'patient_dashboard_screen.dart';
 import 'caretaker_dashboard_screen.dart';
@@ -370,16 +371,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             onPressed: () {
               Navigator.pop(ctx);
               if (session.isPatient) {
-                final profile = PatientProfile.fromSession(session);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => PatientDashboardScreen(
-                      profile: profile,
-                      isBengali: widget.isBengali,
-                    ),
-                  ),
-                );
+                _hydrateThenNavigate(session);
               } else if (session.isHealthcareWorker) {
                 Navigator.pushReplacement(
                   context,
@@ -399,6 +391,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Text(widget.isBengali ? "ড্যাশবোর্ডে যান" : "Continue to Dashboard"),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _hydrateThenNavigate(UserSession session) async {
+    final profile = await ProfileStorageService.hydrateProfile(
+      PatientProfile.fromSession(session),
+    );
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PatientDashboardScreen(
+          profile: profile,
+          isBengali: widget.isBengali,
+        ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
+import '../services/profile_storage_service.dart';
 import 'register_screen.dart';
 import 'patient_dashboard_screen.dart';
 import 'caretaker_dashboard_screen.dart';
@@ -61,7 +62,10 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           );
         } else if (session.isPatient) {
-          final profile = PatientProfile.fromSession(session);
+          final profile = await ProfileStorageService.hydrateProfile(
+            PatientProfile.fromSession(session),
+          );
+          if (!mounted) return;
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(

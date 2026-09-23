@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../services/app_settings.dart';
 import 'about_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -28,7 +29,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _isBengali = widget.isBengali;
-    _selectedTheme = widget.currentTheme;
+    _selectedTheme = AppSettings.instance.theme;
   }
 
   void _showThemeDialog() {
@@ -41,7 +42,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
           title: Row(
             children: [
-              const Icon(Icons.palette_outlined, color: AppTheme.primary, size: 26),
+              Icon(
+                AppSettings.instance.theme == 'High Contrast'
+                    ? Icons.highlight_rounded
+                    : Icons.palette_outlined,
+                color: AppTheme.primary,
+                size: 26,
+              ),
               const SizedBox(width: 10),
               Text(
                 isBn ? "থিম নির্বাচন করুন" : "Choose Theme",
@@ -57,9 +64,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: isBn ? "পরিষ্কার ও শান্ত রঙ" : "Clean teal & white background",
                 themeValue: "Light",
                 onSelected: () {
+                  AppSettings.instance.setTheme("Light");
                   setDialogState(() => _selectedTheme = "Light");
-                  setState(() => _selectedTheme = "Light");
-                  widget.onThemeChanged?.call("Light");
                   Navigator.pop(ctx);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -75,9 +81,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: isBn ? "রাতের জন্য চোখের আরামদায়ক" : "Easy on eyes in dark rooms",
                 themeValue: "Dark",
                 onSelected: () {
+                  AppSettings.instance.setTheme("Dark");
                   setDialogState(() => _selectedTheme = "Dark");
-                  setState(() => _selectedTheme = "Dark");
-                  widget.onThemeChanged?.call("Dark");
                   Navigator.pop(ctx);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -93,9 +98,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: isBn ? "সহজে স্পষ্ট দেখার উপযোগী" : "Maximum readability for elderly eyes",
                 themeValue: "High Contrast",
                 onSelected: () {
+                  AppSettings.instance.setTheme("High Contrast");
                   setDialogState(() => _selectedTheme = "High Contrast");
-                  setState(() => _selectedTheme = "High Contrast");
-                  widget.onThemeChanged?.call("High Contrast");
                   Navigator.pop(ctx);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(

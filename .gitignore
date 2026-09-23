@@ -31,4 +31,8 @@
 **/.vscode/
 **/*.iml
 
+# Environment variables
+**/.env
+**/.env.*
+
 *.hprof

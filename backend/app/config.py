@@ -17,11 +17,13 @@ class Settings(BaseSettings):
     ORACLE_SERVICE_NAME: str = os.getenv("ORACLE_SERVICE_NAME", "xe")
     USE_SQLITE_FALLBACK: bool = True  # Allows offline/local dev when Oracle is unreachable
 
-    # Groq API
-    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
-
     # Firebase Admin (FCM)
     FIREBASE_CREDENTIALS_PATH: str = os.getenv("FIREBASE_CREDENTIALS_PATH", "")
+
+    # Groq (free-tier online LLM). Declared here so pydantic-settings
+    # accepts the keys passed via GROQ_MODEL_CONFIG env vars (from .env).
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
     # SMTP for OTP
     SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")

@@ -801,7 +801,7 @@ class _WordRecallGameScreenState extends State<WordRecallGameScreen> with Single
     final options = isBn ? item.optionsBn : item.optionsEn;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FBF9),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           isBn ? "শব্দ স্মরণ খেলা" : "Word Recall Game",

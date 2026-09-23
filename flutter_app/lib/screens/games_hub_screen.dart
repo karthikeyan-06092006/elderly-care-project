@@ -3,6 +3,7 @@ import '../theme/app_theme.dart';
 import 'pattern_memory_game_screen.dart';
 import 'card_matching_game_screen.dart';
 import 'word_recall_game_screen.dart';
+import 'number_sequence_game_screen.dart';
 
 class GamesHubScreen extends StatelessWidget {
   final bool isBengali;
@@ -40,7 +41,7 @@ class GamesHubScreen extends StatelessWidget {
       },
       {
         "title": isBn ? "সংখ্যা ক্রম" : "Number Sequence",
-        "desc": isBn ? "ছোট থেকে বড় ক্রম অনুযায়ী ট্যাপ করুন" : "Tap numbers in ascending order to test focus",
+        "desc": isBn ? "সংখ্যার ক্রম দেখে মনে রাখুন ও একই ক্রমে ট্যাপ করুন" : "Watch the numbers flash, then repeat the same sequence",
         "icon": Icons.pin_rounded,
         "color": const Color(0xFFF3E5F5),
         "iconColor": const Color(0xFF7B1FA2),
@@ -87,12 +88,10 @@ class GamesHubScreen extends StatelessWidget {
                     ),
                   );
                 } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        isBn ? "${game['title']} খেলা শীঘ্রই আসছে..." : "${game['title']} is coming soon!",
-                      ),
-                      backgroundColor: AppTheme.primary,
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => NumberSequenceGameScreen(isBengali: isBn),
                     ),
                   );
                 }

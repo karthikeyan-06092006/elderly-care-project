@@ -34,6 +34,9 @@ public interface UserRepository extends JpaRepository<User, String> {
     @Query("SELECT u FROM User u WHERE u.role = 'HEALTHCARE_WORKER' AND u.verificationStatus = 'APPROVED'")
     List<User> findAllVerifiedHealthcareWorkers();
 
+    @Query("SELECT u FROM User u WHERE LOWER(u.role) = 'patient' ORDER BY u.fullName ASC")
+    List<User> findAllPatients();
+
     long countByRole(String role);
 
     long countByRoleAndVerificationStatus(String role, String verificationStatus);

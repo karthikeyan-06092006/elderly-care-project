@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../theme/app_theme.dart';
 import '../models/user_model.dart';
+import '../services/profile_storage_service.dart';
 
 class ProfileDetailsScreen extends StatefulWidget {
   final PatientProfile profile;
@@ -40,8 +41,15 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
       );
 
       if (pickedFile != null) {
+        final userId = _currentProfile.userId.isNotEmpty ? _currentProfile.userId : _currentProfile.email;
+        final savedPath = await ProfileStorageService.savePhotoForUser(
+          userId: userId,
+          source: File(pickedFile.path),
+        );
+
+        if (!mounted) return;
         setState(() {
-          _currentProfile = _currentProfile.copyWith(photoPath: pickedFile.path);
+          _currentProfile = _currentProfile.copyWith(photoPath: savedPath);
         });
         widget.onProfileUpdated(_currentProfile);
 
@@ -129,6 +137,8 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
                   ),
                   onTap: () {
                     Navigator.pop(ctx);
+                    final userId = _currentProfile.userId.isNotEmpty ? _currentProfile.userId : _currentProfile.email;
+                    ProfileStorageService.deletePhotoForUser(userId);
                     setState(() {
                       _currentProfile = _currentProfile.copyWith(clearPhoto: true);
                     });
