@@ -195,6 +195,31 @@ class UserSession {
       token: json['token'] ?? '',
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'userId': userId,
+      'email': email,
+      'name': name,
+      'phone': phone,
+      'role': role,
+      'age': age,
+      'dateOfBirth': dateOfBirth,
+      'gender': gender,
+      'state': state,
+      'district': district,
+      'pincode': pincode,
+      'profession': profession,
+      'specialization': specialization,
+      'hospitalName': hospitalName,
+      'stateCouncil': stateCouncil,
+      'registrationNumber': registrationNumber,
+      'verificationStatus': verificationStatus,
+      'qrCodeToken': qrCodeToken,
+      'registeredDate': registeredDate,
+      'token': token,
+    };
+  }
 }
 
 class HealthcareWorkerModel {

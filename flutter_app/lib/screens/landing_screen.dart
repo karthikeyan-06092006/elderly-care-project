@@ -1,7 +1,13 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../models/user_model.dart';
+import '../services/profile_storage_service.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
+import 'patient_dashboard_screen.dart';
+import 'caretaker_dashboard_screen.dart';
+import 'healthcare_worker_dashboard_screen.dart';
+import 'admin_dashboard_screen.dart';
 
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
@@ -12,9 +18,68 @@ class LandingScreen extends StatefulWidget {
 
 class _LandingScreenState extends State<LandingScreen> {
   String _selectedLang = 'en'; // 'en' or 'bn'
+  bool _isCheckingSession = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkRestoredSession();
+  }
+
+  Future<void> _checkRestoredSession() async {
+    final session = await ProfileStorageService.loadSession();
+    if (!mounted) return;
+
+    if (session != null) {
+      if (session.isAdmin) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => AdminDashboardScreen(session: session)),
+        );
+        return;
+      } else if (session.isHealthcareWorker) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => HealthcareWorkerDashboardScreen(session: session)),
+        );
+        return;
+      } else if (session.isPatient) {
+        final profile = await ProfileStorageService.hydrateProfile(
+          PatientProfile.fromSession(session),
+        );
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PatientDashboardScreen(
+              profile: profile,
+              isBengali: _selectedLang == 'bn',
+            ),
+          ),
+        );
+        return;
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => CaretakerDashboardScreen(session: session)),
+        );
+        return;
+      }
+    }
+
+    setState(() => _isCheckingSession = false);
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isCheckingSession) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: AppTheme.primary),
+        ),
+      );
+    }
+
     final isBn = _selectedLang == 'bn';
 
     return Scaffold(

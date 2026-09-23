@@ -46,6 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (result.success && result.data != null) {
         final session = result.data!;
+        await ProfileStorageService.saveSession(session);
 
         if (session.isAdmin) {
           Navigator.pushReplacement(

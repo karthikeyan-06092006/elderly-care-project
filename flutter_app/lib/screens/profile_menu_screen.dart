@@ -6,6 +6,7 @@ import 'profile_details_screen.dart';
 import 'caretakers_screen.dart';
 import 'settings_screen.dart';
 import 'landing_screen.dart';
+import '../services/profile_storage_service.dart';
 
 class ProfileMenuScreen extends StatefulWidget {
   final PatientProfile profile;
@@ -75,7 +76,9 @@ class _ProfileMenuScreenState extends State<ProfileMenuScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
-            onPressed: () {
+            onPressed: () async {
+              await ProfileStorageService.clearSession();
+              if (!mounted) return;
               Navigator.pop(ctx);
               Navigator.pushAndRemoveUntil(
                 context,

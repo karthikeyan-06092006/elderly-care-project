@@ -1,12 +1,15 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/user_model.dart';
 
-/// Persists the patient's profile photo in app-private storage so the picture
-/// survives logout and re-login. Photos are keyed by user id.
+/// Persists the patient's profile photo and active UserSession in app-private
+/// storage so elderly users stay logged in across app restarts until explicit logout.
 class ProfileStorageService {
   ProfileStorageService._();
+
+  static const String _sessionFileName = 'active_user_session.json';
 
   static String _sanitize(String id) {
     return id.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
@@ -19,6 +22,55 @@ class ProfileStorageService {
   static Future<File> _targetFileFor(String userId) async {
     final dir = await getApplicationDocumentsDirectory();
     return File('${dir.path}${Platform.pathSeparator}${_fileNameFor(userId)}');
+  }
+
+  static Future<File> _sessionFile() async {
+    final dir = await getApplicationDocumentsDirectory();
+    return File('${dir.path}${Platform.pathSeparator}$_sessionFileName');
+  }
+
+  /// Saves the active user session durably to disk
+  static Future<void> saveSession(UserSession session) async {
+    try {
+      final file = await _sessionFile();
+      final jsonStr = jsonEncode(session.toJson());
+      await file.writeAsString(jsonStr, flush: true);
+      debugPrint('[ProfileStorageService] Saved active session for ${session.email} (${session.role})');
+    } catch (e) {
+      debugPrint('[ProfileStorageService] Failed to save session: $e');
+    }
+  }
+
+  /// Loads the persisted user session if available
+  static Future<UserSession?> loadSession() async {
+    try {
+      final file = await _sessionFile();
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        if (content.trim().isNotEmpty) {
+          final jsonMap = jsonDecode(content);
+          final session = UserSession.fromJson(jsonMap);
+          debugPrint('[ProfileStorageService] Restored active session: ${session.email} (${session.role})');
+          return session;
+        }
+      }
+    } catch (e) {
+      debugPrint('[ProfileStorageService] Failed to load session: $e');
+    }
+    return null;
+  }
+
+  /// Clears active session upon explicit user logout
+  static Future<void> clearSession() async {
+    try {
+      final file = await _sessionFile();
+      if (await file.exists()) {
+        await file.delete();
+        debugPrint('[ProfileStorageService] Cleared active user session');
+      }
+    } catch (e) {
+      debugPrint('[ProfileStorageService] Failed to clear session: $e');
+    }
   }
 
   /// Copies [source] into app documents storage and returns the durable path.

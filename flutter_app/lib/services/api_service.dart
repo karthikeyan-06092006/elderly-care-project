@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
 import '../models/social_models.dart';
+import '../models/reminder_model.dart';
 
 class ApiResult<T> {
   final bool success;
@@ -950,6 +951,122 @@ class ApiService {
       return ApiResult(success: false, message: message);
     } catch (e) {
       return ApiResult(success: false, message: 'Failed to delete message: $e');
+    }
+  }
+
+  /// Fetch all active configured reminders for a patient
+  static Future<ApiResult<List<PatientReminder>>> getPatientReminders(String patientId) async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      final url = Uri.parse('$rootApiUrl/reminders/patient/$patientId');
+      final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 10));
+
+      final body = jsonDecode(utf8.decode(response.bodyBytes));
+      final message = body['message'] ?? 'Fetched reminders';
+
+      if (response.statusCode == 200 && (body['success'] == true)) {
+        final List list = body['data'] ?? [];
+        final reminders = list.map((item) => PatientReminder.fromJson(item)).toList();
+        return ApiResult(success: true, message: message, data: reminders);
+      }
+      return ApiResult(success: false, message: message, data: []);
+    } catch (e) {
+      return ApiResult(success: false, message: 'Failed to fetch reminders: $e', data: []);
+    }
+  }
+
+  /// Create a new reminder / alarm
+  static Future<ApiResult<PatientReminder>> createReminder({
+    required String patientId,
+    String? createdBy,
+    required String title,
+    required String category,
+    required String reminderTime,
+    String daysOfWeek = 'DAILY',
+    String? voiceMessage,
+    String voiceLanguage = 'en',
+  }) async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      final url = Uri.parse('$rootApiUrl/reminders');
+      final response = await http
+          .post(
+            url,
+            headers: _headers,
+            body: jsonEncode({
+              'patientId': patientId,
+              'createdBy': createdBy,
+              'title': title,
+              'category': category,
+              'reminderTime': reminderTime,
+              'daysOfWeek': daysOfWeek,
+              'voiceMessage': voiceMessage,
+              'voiceLanguage': voiceLanguage,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final body = jsonDecode(utf8.decode(response.bodyBytes));
+      final message = body['message'] ?? 'Reminder saved';
+
+      if (response.statusCode == 200 && (body['success'] == true) && body['data'] != null) {
+        final reminder = PatientReminder.fromJson(body['data']);
+        return ApiResult(success: true, message: message, data: reminder);
+      }
+      return ApiResult(success: false, message: message);
+    } catch (e) {
+      return ApiResult(success: false, message: 'Failed to create reminder: $e');
+    }
+  }
+
+  /// Update reminder status (e.g. TAKEN, SNOOZED, MISSED) or toggle active
+  static Future<ApiResult<PatientReminder>> updateReminderStatus({
+    required String reminderId,
+    String? status,
+    bool? active,
+  }) async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      var query = <String>[];
+      if (status != null) query.add('status=$status');
+      if (active != null) query.add('active=$active');
+      final qStr = query.isNotEmpty ? '?${query.join('&')}' : '';
+      final url = Uri.parse('$rootApiUrl/reminders/$reminderId/status$qStr');
+
+      final response = await http.put(url, headers: _headers).timeout(const Duration(seconds: 10));
+      final body = jsonDecode(utf8.decode(response.bodyBytes));
+      final message = body['message'] ?? 'Status updated';
+
+      if (response.statusCode == 200 && (body['success'] == true) && body['data'] != null) {
+        final reminder = PatientReminder.fromJson(body['data']);
+        return ApiResult(success: true, message: message, data: reminder);
+      }
+      return ApiResult(success: false, message: message);
+    } catch (e) {
+      return ApiResult(success: false, message: 'Failed to update reminder: $e');
+    }
+  }
+
+  /// Delete a reminder
+  static Future<ApiResult<void>> deleteReminder(String reminderId) async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      final url = Uri.parse('$rootApiUrl/reminders/$reminderId');
+
+      final response = await http.delete(url, headers: _headers).timeout(const Duration(seconds: 10));
+      final body = jsonDecode(utf8.decode(response.bodyBytes));
+      final message = body['message'] ?? 'Reminder deleted';
+
+      if (response.statusCode == 200 && (body['success'] == true)) {
+        return ApiResult(success: true, message: message);
+      }
+      return ApiResult(success: false, message: message);
+    } catch (e) {
+      return ApiResult(success: false, message: 'Failed to delete reminder: $e');
     }
   }
 }

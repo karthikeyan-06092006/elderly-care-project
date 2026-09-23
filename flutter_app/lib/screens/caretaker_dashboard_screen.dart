@@ -11,6 +11,8 @@ import 'caretaker_analytics_dashboard_screen.dart';
 import 'nearby_doctors_screen.dart';
 import 'caretaker_social_screen.dart';
 import 'voice_assistant_screen.dart';
+import 'reminders_screen.dart';
+import '../services/profile_storage_service.dart';
 
 class CaretakerDashboardScreen extends StatefulWidget {
   final UserSession session;
@@ -333,7 +335,9 @@ class _CaretakerDashboardScreenState extends State<CaretakerDashboardScreen> {
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: "Logout",
-            onPressed: () {
+            onPressed: () async {
+              await ProfileStorageService.clearSession();
+              if (!context.mounted) return;
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(builder: (_) => const LandingScreen()),
@@ -833,6 +837,35 @@ class _CaretakerDashboardScreenState extends State<CaretakerDashboardScreen> {
               ],
             ),
             const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => RemindersScreen(
+                        patientId: patient.patientId,
+                        patientName: patient.fullName,
+                        createdBy: widget.session.userId,
+                        isCaretakerViewing: true,
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.alarm_on_rounded, size: 18, color: Colors.white),
+                label: const Text(
+                  "⏰ Set Routine Alarms (Medicine, Food, Sleep)",
+                  style: TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0D9488),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(

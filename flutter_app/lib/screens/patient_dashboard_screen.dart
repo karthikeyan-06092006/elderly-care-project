@@ -14,6 +14,8 @@ import '../services/app_settings.dart';
 import 'caretakers_screen.dart';
 import 'social_hub_screen.dart';
 import 'voice_assistant_screen.dart';
+import 'reminders_screen.dart';
+import '../services/alarm_service.dart';
 
 class PatientDashboardScreen extends StatefulWidget {
   final PatientProfile profile;
@@ -41,6 +43,17 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     _isBengali = widget.isBengali;
     _currentTheme = AppSettings.instance.theme;
     _fetchCaretakersFromDb();
+    AlarmService.instance.startRoutineChecker(
+      context: context,
+      patientId: _currentProfile.userId.isNotEmpty ? _currentProfile.userId : _currentProfile.email,
+      onStatusChanged: () {},
+    );
+  }
+
+  @override
+  void dispose() {
+    AlarmService.instance.stopRoutineChecker();
+    super.dispose();
   }
 
   Future<void> _fetchCaretakersFromDb() async {
@@ -460,7 +473,79 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // 3. Let's Connect - Social Interaction Section
+                    // 3. Routine Alarms & Voice Reminders (Medicine, Food, Sleep)
+                    InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => RemindersScreen(
+                              patientId: _currentProfile.userId.isNotEmpty ? _currentProfile.userId : _currentProfile.email,
+                              patientName: _currentProfile.name,
+                              isBengali: isBn,
+                            ),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(22),
+                      child: Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF0D9488), Color(0xFF14B8A6)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(22),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF0F766E).withAlpha(45),
+                              blurRadius: 12,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(13),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withAlpha(40),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.alarm_on_rounded, color: Colors.white, size: 32),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    isBn ? "দৈনন্দিন রুটিন ও অ্যালার্ম" : "Alarms & Reminders",
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 19,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    isBn
+                                        ? "ওষুধ, খাবার ও ঘুমের ভয়েস রিমাইন্ডার"
+                                        : "Voice reminders for medicine, meals & sleep routine",
+                                    style: const TextStyle(color: Color(0xFFE0F2F1), fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 20),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 4. Let's Connect - Social Interaction Section
                     InkWell(
                       onTap: () {
                         Navigator.push(

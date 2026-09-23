@@ -417,6 +417,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     final session = regResult.data!;
+    await ProfileStorageService.saveSession(session);
 
     // Step 3: Success Dialog & Role Routing
     showDialog(

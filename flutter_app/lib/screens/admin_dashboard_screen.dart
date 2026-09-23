@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
+import '../services/profile_storage_service.dart';
 import 'login_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -245,7 +246,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.logout_rounded),
-            onPressed: () {
+            onPressed: () async {
+              await ProfileStorageService.clearSession();
+              if (!context.mounted) return;
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
