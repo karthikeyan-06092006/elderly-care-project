@@ -2,14 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'services/notification_service.dart';
 import 'services/app_settings.dart';
-import 'services/profile_storage_service.dart';
-import 'models/user_model.dart';
 import 'theme/app_theme.dart';
 import 'screens/landing_screen.dart';
-import 'screens/patient_dashboard_screen.dart';
-import 'screens/caretaker_dashboard_screen.dart';
-import 'screens/healthcare_worker_dashboard_screen.dart';
-import 'screens/admin_dashboard_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,34 +18,11 @@ void main() async {
 
   await AppSettings.instance.load();
 
-  // Pre-load active session so the app immediately renders the right dashboard with zero flicker or black screen
-  Widget homeScreen = const LandingScreen();
-  try {
-    final session = await ProfileStorageService.loadSession();
-    if (session != null) {
-      if (session.isAdmin) {
-        homeScreen = AdminDashboardScreen(session: session);
-      } else if (session.isHealthcareWorker) {
-        homeScreen = HealthcareWorkerDashboardScreen(session: session);
-      } else if (session.isPatient) {
-        final profile = await ProfileStorageService.hydrateProfile(
-          PatientProfile.fromSession(session),
-        );
-        homeScreen = PatientDashboardScreen(profile: profile);
-      } else {
-        homeScreen = CaretakerDashboardScreen(session: session);
-      }
-    }
-  } catch (e) {
-    debugPrint("Session load error: $e");
-  }
-
-  runApp(CognitiveCareApp(homeScreen: homeScreen));
+  runApp(const CognitiveCareApp());
 }
 
 class CognitiveCareApp extends StatelessWidget {
-  final Widget homeScreen;
-  const CognitiveCareApp({super.key, required this.homeScreen});
+  const CognitiveCareApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +46,7 @@ class CognitiveCareApp extends StatelessWidget {
               child: child ?? const SizedBox.shrink(),
             );
           },
-          home: homeScreen,
+          home: const LandingScreen(),
         );
       },
     );
