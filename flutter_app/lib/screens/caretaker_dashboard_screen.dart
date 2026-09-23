@@ -8,6 +8,8 @@ import '../theme/app_theme.dart';
 import 'landing_screen.dart';
 import 'qr_scanner_screen.dart';
 import 'caretaker_analytics_dashboard_screen.dart';
+import 'caretaker_social_screen.dart';
+import 'voice_assistant_screen.dart';
 
 class CaretakerDashboardScreen extends StatefulWidget {
   final UserSession session;
@@ -24,6 +26,7 @@ class CaretakerDashboardScreen extends StatefulWidget {
 class _CaretakerDashboardScreenState extends State<CaretakerDashboardScreen> {
   List<LinkedPatient> _patients = [];
   List<ActiveEmergencyAlert> _activeAlerts = [];
+  int _pendingSocialApprovals = 0;
   Timer? _emergencyPollingTimer;
   int _lastKnownAlertCount = 0;
   bool _isLoading = true;
@@ -34,6 +37,7 @@ class _CaretakerDashboardScreenState extends State<CaretakerDashboardScreen> {
     super.initState();
     _fetchLinkedPatients();
     _fetchActiveAlerts();
+    _fetchPendingSocialApprovals();
     NotificationService.registerDeviceToken(widget.session.email);
     // Poll for active emergency alerts every 4 seconds
     _emergencyPollingTimer = Timer.periodic(const Duration(seconds: 4), (_) => _fetchActiveAlerts());
@@ -61,6 +65,16 @@ class _CaretakerDashboardScreenState extends State<CaretakerDashboardScreen> {
 
       setState(() {
         _activeAlerts = alerts;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _fetchPendingSocialApprovals() async {
+    try {
+      final list = await ApiService.getPendingCaretakerApprovals(widget.session.userId);
+      if (!mounted) return;
+      setState(() {
+        _pendingSocialApprovals = list.length;
       });
     } catch (_) {}
   }
@@ -285,7 +299,7 @@ class _CaretakerDashboardScreenState extends State<CaretakerDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7F9),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text(
           "Caregiver Portal",
@@ -295,6 +309,21 @@ class _CaretakerDashboardScreenState extends State<CaretakerDashboardScreen> {
         foregroundColor: Colors.white,
         elevation: 2,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.mic_rounded),
+            tooltip: "Voice Assistant",
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => VoiceAssistantScreen(
+                    isBengali: false,
+                    userName: widget.session.name,
+                  ),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: "Refresh Patients",
@@ -412,6 +441,93 @@ class _CaretakerDashboardScreenState extends State<CaretakerDashboardScreen> {
                         ),
                       ),
                       const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 18),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // 👥 Social Connection Approvals Banner
+              InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CaretakerSocialScreen(session: widget.session),
+                    ),
+                  ).then((_) => _fetchPendingSocialApprovals());
+                },
+                borderRadius: BorderRadius.circular(18),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF00897B), Color(0xFF26A69A)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF004D40).withValues(alpha: 0.25),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.groups_rounded, color: Colors.white, size: 28),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Social Approvals",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              "Accept or reject patient connection requests",
+                              style: TextStyle(
+                                color: Color(0xFFB2DFDB),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_pendingSocialApprovals > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade600,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Text(
+                            '$_pendingSocialApprovals pending',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        )
+                      else
+                        const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 18),
                     ],
                   ),
                 ),

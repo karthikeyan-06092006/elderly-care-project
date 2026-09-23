@@ -124,7 +124,7 @@ class _CaretakerAnalyticsDashboardScreenState extends State<CaretakerAnalyticsDa
     final isBn = widget.isBengali;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7F6),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           isBn ? "কেয়ারগিভার বিশ্লেষণ ড্যাশবোর্ড" : "Caregiver Cognitive Analytics",

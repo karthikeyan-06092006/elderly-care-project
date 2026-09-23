@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
+import '../models/social_models.dart';
 
 class ApiResult<T> {
   final bool success;
@@ -24,9 +25,11 @@ class ApiService {
     if (Platform.isAndroid) {
       return const [
         'http://127.0.0.1:8088/api/auth', // USB adb reverse / localhost
+        'http://10.191.241.233:8088/api/auth', // Wi-Fi LAN IP (this PC)
+        'http://192.168.56.1:8088/api/auth', // Ethernet/VirtualBox host
         'http://10.0.2.2:8088/api/auth',   // Android Emulator host alias
-        'http://172.20.10.14:8088/api/auth', // Wi-Fi LAN IP
-        'http://172.16.72.28:8088/api/auth', // Ethernet LAN IP
+        'http://172.20.10.14:8088/api/auth', // old Wi-Fi LAN IP
+        'http://172.16.72.28:8088/api/auth', // old Ethernet LAN IP
       ];
     }
     return const ['http://localhost:8088/api/auth'];
@@ -85,6 +88,38 @@ class ApiService {
         success: false,
         message: 'Network error or server unreachable. Please check backend connection.',
       );
+    }
+  }
+
+  /// Talk to the AI companion (Spring Boot forwards to the FastAPI chat backend)
+  static Future<String?> aiChat({
+    required String userText,
+    required String language,
+    String patientName = '',
+  }) async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/api/auth', '');
+      final url = Uri.parse('$rootApiUrl/api/ai/chat');
+      final response = await http
+          .post(
+            url,
+            headers: _headers,
+            body: jsonEncode({
+              'messages': [
+                {'role': 'user', 'content': userText},
+              ],
+              'language': language == 'bn' ? 'bn' : 'en',
+              'patient_name': patientName,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode != 200) return null;
+      final body = jsonDecode(utf8.decode(response.bodyBytes));
+      final reply = body['reply'];
+      return reply is String && reply.trim().isNotEmpty ? reply : null;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -399,6 +434,271 @@ class ApiService {
       return false;
     } catch (e) {
       return false;
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Social Interaction (friend requests, caregiver approval, chat)
+  // ------------------------------------------------------------------
+
+  /// Root API host (e.g. http://10.0.2.2:8088/api) without /auth suffix
+  static String get _rootApiUrl => baseUrl.replaceAll('/auth', '');
+
+  /// Host origin (e.g. http://10.0.2.2:8088) used to resolve media URLs
+  static String get mediaBaseUrl {
+    final current = _rootApiUrl;
+    final idx = current.indexOf('/api');
+    return idx > 0 ? current.substring(0, idx) : current;
+  }
+
+  /// Fetch all non-rejected connections for a patient
+  static Future<List<SocialConnection>> getSocialConnections(String patientId) async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      final url = Uri.parse('$rootApiUrl/social/patient/$patientId/connections');
+      final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final List<dynamic> list = jsonDecode(utf8.decode(response.bodyBytes));
+        return list.map((item) => SocialConnection.fromJson(item)).toList();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Fetch patients that can still receive a connection request
+  static Future<List<DiscoverablePatient>> getDiscoverablePatients(String patientId) async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      final url = Uri.parse('$rootApiUrl/social/patient/$patientId/discover');
+      final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final List<dynamic> list = jsonDecode(utf8.decode(response.bodyBytes));
+        return list.map((item) => DiscoverablePatient.fromJson(item)).toList();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Patient A sends a social connection request to Patient B
+  static Future<ApiResult<SocialConnection>> sendConnectionRequest({
+    required String requesterPatientId,
+    required String receiverPatientId,
+    String? requestMessage,
+  }) async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      final url = Uri.parse('$rootApiUrl/social/request?requesterPatientId=$requesterPatientId');
+      final response = await http
+          .post(
+            url,
+            headers: _headers,
+            body: jsonEncode({
+              'receiverPatientId': receiverPatientId.trim(),
+              'requestMessage': requestMessage ?? '',
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+      final body = jsonDecode(utf8.decode(response.bodyBytes));
+      final message = body['message'] ?? 'Unable to send request';
+      if (response.statusCode == 200 && (body['success'] == true)) {
+        final data = body['data'] != null ? SocialConnection.fromJson(body['data']) : null;
+        return ApiResult(success: true, message: message, data: data);
+      }
+      return ApiResult(success: false, message: message);
+    } catch (e) {
+      return ApiResult(success: false, message: 'Failed to send request: $e');
+    }
+  }
+
+  /// Receiver patient accepts or rejects an incoming request
+  static Future<ApiResult<SocialConnection>> respondToConnection({
+    required int connectionId,
+    required String patientId,
+    required bool accept,
+  }) async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      final url = Uri.parse(
+          '$rootApiUrl/social/$connectionId/respond?patientId=$patientId&accept=$accept');
+      final response = await http.post(url, headers: _headers).timeout(const Duration(seconds: 15));
+      final body = jsonDecode(utf8.decode(response.bodyBytes));
+      final message = body['message'] ?? 'Unable to process request';
+      if (response.statusCode == 200 && (body['success'] == true)) {
+        final data = body['data'] != null ? SocialConnection.fromJson(body['data']) : null;
+        return ApiResult(success: true, message: message, data: data);
+      }
+      return ApiResult(success: false, message: message);
+    } catch (e) {
+      return ApiResult(success: false, message: 'Failed to respond: $e');
+    }
+  }
+
+  /// Fetch connections awaiting caregiver approval for the caregiver's patients
+  static Future<List<SocialConnection>> getPendingCaretakerApprovals(String caretakerId) async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      final url = Uri.parse('$rootApiUrl/social/caretaker/$caretakerId/pending-approvals');
+      final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final List<dynamic> list = jsonDecode(utf8.decode(response.bodyBytes));
+        return list.map((item) => SocialConnection.fromJson(item)).toList();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Fetch connected conversations for a caregiver's linked patients
+  static Future<List<SocialConnection>> getConnectedForCaretaker(String caretakerId) async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      final url = Uri.parse('$rootApiUrl/social/caretaker/$caretakerId/connections');
+      final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final List<dynamic> list = jsonDecode(utf8.decode(response.bodyBytes));
+        return list.map((item) => SocialConnection.fromJson(item)).toList();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Caregiver approves or rejects a social connection request
+  static Future<ApiResult<SocialConnection>> caretakerDecision({
+    required int connectionId,
+    required String caretakerId,
+    required bool approve,
+  }) async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      final url = Uri.parse(
+          '$rootApiUrl/social/$connectionId/caretaker-decision?caretakerId=$caretakerId&approve=$approve');
+      final response = await http.post(url, headers: _headers).timeout(const Duration(seconds: 15));
+      final body = jsonDecode(utf8.decode(response.bodyBytes));
+      final message = body['message'] ?? 'Unable to process request';
+      if (response.statusCode == 200 && (body['success'] == true)) {
+        final data = body['data'] != null ? SocialConnection.fromJson(body['data']) : null;
+        return ApiResult(success: true, message: message, data: data);
+      }
+      return ApiResult(success: false, message: message);
+    } catch (e) {
+      return ApiResult(success: false, message: 'Failed to approve: $e');
+    }
+  }
+
+  /// Send a social chat message (TEXT / VOICE / PHOTO)
+  static Future<ApiResult<SocialMessage>> sendSocialMessage({
+    required String senderId,
+    required int connectionId,
+    required String type,
+    String? content,
+    String? mediaUrl,
+    int? durationMs,
+  }) async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      final url = Uri.parse('$rootApiUrl/social/message?senderId=$senderId');
+      final response = await http
+          .post(
+            url,
+            headers: _headers,
+            body: jsonEncode({
+              'connectionId': connectionId,
+              'type': type,
+              'content': content ?? '',
+              'mediaUrl': mediaUrl ?? '',
+              'durationMs': durationMs ?? 0,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+      final body = jsonDecode(utf8.decode(response.bodyBytes));
+      final message = body['message'] ?? 'Unable to send message';
+      if (response.statusCode == 200 && (body['success'] == true)) {
+        final data = body['data'] != null ? SocialMessage.fromJson(body['data']) : null;
+        return ApiResult(success: true, message: message, data: data);
+      }
+      return ApiResult(success: false, message: message);
+    } catch (e) {
+      return ApiResult(success: false, message: 'Failed to send message: $e');
+    }
+  }
+
+  /// Fetch the message history for a connection (participants only)
+  static Future<List<SocialMessage>> getSocialMessages(int connectionId, String userId) async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      final url = Uri.parse('$rootApiUrl/social/$connectionId/messages?userId=$userId');
+      final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final List<dynamic> list = jsonDecode(utf8.decode(response.bodyBytes));
+        return list.map((item) => SocialMessage.fromJson(item)).toList();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Upload image / voice file and return the media URL
+  static Future<ApiResult<String>> uploadSocialMedia(String filePath) async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      final url = Uri.parse('$rootApiUrl/social/upload');
+      final file = File(filePath);
+      final request = http.MultipartRequest('POST', url)
+        ..files.add(await http.MultipartFile.fromPath('file', file.path));
+      final streamed = await request.send().timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamed);
+      final body = jsonDecode(utf8.decode(response.bodyBytes));
+      final message = body['message'] ?? 'Upload failed';
+      if (response.statusCode == 200 && (body['success'] == true)) {
+        final mediaUrl = body['data'] is String ? body['data'] : '';
+        return ApiResult(success: true, message: message, data: mediaUrl);
+      }
+      return ApiResult(success: false, message: message);
+    } catch (e) {
+      return ApiResult(success: false, message: 'Failed to upload media: $e');
+    }
+  }
+
+  /// Delete a social chat message (participants only)
+  static Future<ApiResult<void>> deleteSocialMessage({
+    required int messageId,
+    required int connectionId,
+    required String userId,
+  }) async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      final url = Uri.parse(
+          '$rootApiUrl/social/message/$messageId?connectionId=$connectionId&userId=$userId');
+      final response = await http
+          .delete(url, headers: _headers)
+          .timeout(const Duration(seconds: 10));
+      final body = jsonDecode(utf8.decode(response.bodyBytes));
+      final message = body['message'] ?? 'Unable to delete message';
+      if (response.statusCode == 200 && (body['success'] == true)) {
+        return ApiResult(success: true, message: message);
+      }
+      return ApiResult(success: false, message: message);
+    } catch (e) {
+      return ApiResult(success: false, message: 'Failed to delete message: $e');
     }
   }
 }

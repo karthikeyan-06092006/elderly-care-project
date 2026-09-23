@@ -46,6 +46,8 @@ dependencies:
   qr_flutter: ^4.1.0
   http: ^1.2.1
   mobile_scanner: ^7.4.2
+  record: ^7.1.1
+  speech_to_text: ^7.5.0
 
 dev_dependencies:
   flutter_test:

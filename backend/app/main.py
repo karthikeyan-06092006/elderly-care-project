@@ -9,7 +9,7 @@ from app.api.ai_chat import router as ai_chat_router
 
 app = FastAPI(
     title="AI-Based Cognitive Support Backend",
-    description="Backend API for Elderly Dementia Patients Cognitive System with Random Forest ML, Oracle 11g, Groq LLM, and FCM Alerting.",
+    description="Backend API for Elderly Dementia Patients Cognitive System with Random Forest ML, Oracle 11g, and FCM Alerting.",
     version="1.0.0"
 )
 

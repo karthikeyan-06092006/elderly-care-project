@@ -13,6 +13,7 @@ class CaretakerContact {
 }
 
 class PatientProfile {
+  String userId;
   String name;
   String email;
   String phone;
@@ -23,6 +24,7 @@ class PatientProfile {
   List<CaretakerContact> otherCaretakers;
 
   PatientProfile({
+    this.userId = '',
     required this.name,
     required this.email,
     required this.phone,
@@ -34,6 +36,7 @@ class PatientProfile {
   });
 
   PatientProfile copyWith({
+    String? userId,
     String? name,
     String? email,
     String? phone,
@@ -45,6 +48,7 @@ class PatientProfile {
     List<CaretakerContact>? otherCaretakers,
   }) {
     return PatientProfile(
+      userId: userId ?? this.userId,
       name: name ?? this.name,
       email: email ?? this.email,
       phone: phone ?? this.phone,
@@ -58,6 +62,7 @@ class PatientProfile {
 
   factory PatientProfile.fromSession(UserSession session) {
     return PatientProfile(
+      userId: session.userId,
       name: session.name.isNotEmpty ? session.name : "Patient",
       email: session.email,
       phone: session.phone.isNotEmpty ? session.phone : "",

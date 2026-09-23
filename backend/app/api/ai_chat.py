@@ -1,8 +1,16 @@
 ﻿from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List, Optional
-from groq import Groq
-from app.config import settings
+import os
+from pathlib import Path
+import httpx
+from dotenv import load_dotenv
+
+# Load GROQ_API_KEY / GROQ_MODEL from backend\.env, resolved RELATIVE TO
+# THIS FILE (app/api/ai_chat.py -> parents[2] = backend\) so it works no
+# matter which directory uvicorn was launched from.
+_BACKEND_DIR = Path(__file__).resolve().parents[2]
+load_dotenv(_BACKEND_DIR / ".env")
 
 router = APIRouter(prefix="/api/ai", tags=["Bilingual Conversational AI"])
 
@@ -14,6 +22,10 @@ class ChatRequest(BaseModel):
     messages: List[ChatMessage]
     language: Optional[str] = "en"  # "en" or "bn"
     patient_name: Optional[str] = "Grandparent"
+
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 SYSTEM_PROMPT_EN = """You are a warm, gentle, and empathetic conversational companion designed specifically for an elderly person who may experience mild dementia or memory loss.
 Guidelines:
@@ -27,9 +39,8 @@ SYSTEM_PROMPT_BN = """আপনি ডিমেনশিয়া বা স্�
 - উত্তরগুলি খুবই সংক্ষিপ্ত, সহজ, মিষ্টি ও স্পষ্ট ভাষায় রাখুন (১-৩ বাক্য)।
 - সম্মানজনক ও মধুর আচরণ বজায় রাখুন।
 - রোগীকে জল খেতে, বিশ্রাম নিতে ও শান্ত মনে খেলা করতে উৎসাহিত করুন।
-- সর্বদা বাংলায় উত্তর দিন।"""
+- সবসময় বাংলায় উত্তর দিন।"""
 
-# Offline bilingual intent responses fallback
 OFFLINE_RESPONSES = {
     "bn": {
         "hello": "নমস্কার! কেমন আছেন আপনি? আমি আপনার সাথে গল্প করতে সর্বদা প্রস্তুত।",
@@ -50,7 +61,7 @@ OFFLINE_RESPONSES = {
 def get_offline_response(user_msg: str, lang: str) -> str:
     msg = user_msg.lower()
     lang_dict = OFFLINE_RESPONSES.get(lang, OFFLINE_RESPONSES["en"])
-    
+
     if any(w in msg for w in ["hello", "hi", "নমস্কার", "কেমন", "হ্যালো"]):
         return lang_dict["hello"]
     elif any(w in msg for w in ["medicine", "pill", "ওষুধ", "ঔষধ"]):
@@ -62,39 +73,49 @@ def get_offline_response(user_msg: str, lang: str) -> str:
     else:
         return lang_dict["default"]
 
+def call_groq(messages: List[ChatMessage], language: str) -> str:
+    """Return real LLM reply from Groq (free tier). Raises on any failure."""
+    if not GROQ_API_KEY:
+        raise RuntimeError("GROQ_API_KEY not configured")
+
+    sys_prompt = SYSTEM_PROMPT_BN if language == "bn" else SYSTEM_PROMPT_EN
+    payload = {
+        "model": GROQ_MODEL,
+        "messages": [{"role": "system", "content": sys_prompt}] + [m.model_dump() for m in messages],
+        "temperature": 0.5,
+        "max_tokens": 220,
+    }
+
+    with httpx.Client(timeout=20.0) as client:
+        resp = client.post(
+            GROQ_URL,
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        content = data["choices"][0]["message"]["content"].strip()
+        return content if content else get_offline_response(messages[-1].content, language)
+
 @router.post("/chat")
 def chat_with_companion(req: ChatRequest):
     lang = req.language if req.language in ["en", "bn"] else "en"
-    sys_prompt = SYSTEM_PROMPT_BN if lang == "bn" else SYSTEM_PROMPT_EN
 
-    # Try Groq API if key is available
-    if settings.GROQ_API_KEY:
-        try:
-            client = Groq(api_key=settings.GROQ_API_KEY)
-            groq_messages = [{"role": "system", "content": sys_prompt}]
-            for m in req.messages[-6:]:  # Keep recent context
-                groq_messages.append({"role": m.role, "content": m.content})
-            
-            completion = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=groq_messages,
-                temperature=0.6,
-                max_tokens=150
-            )
-            reply = completion.choices[0].message.content
-            return {
-                "reply": reply,
-                "language": lang,
-                "mode": "online_groq"
-            }
-        except Exception as e:
-            print(f"[Groq API Error]: {e}, falling back to local intent responder.")
-
-    # Fallback to local offline intent engine
     last_user_msg = req.messages[-1].content if req.messages else ""
-    offline_reply = get_offline_response(last_user_msg, lang)
+    try:
+        reply = call_groq(req.messages, lang)
+        mode = "online_groq_llm"
+    except Exception as e:
+        import logging
+        logging.getLogger("ai").warning("Groq unavailable, using offline engine: %s", e)
+        reply = get_offline_response(last_user_msg, lang)
+        mode = "offline_rule_engine"
+
     return {
-        "reply": offline_reply,
+        "reply": reply,
         "language": lang,
-        "mode": "offline_rule_engine"
+        "mode": mode
     }

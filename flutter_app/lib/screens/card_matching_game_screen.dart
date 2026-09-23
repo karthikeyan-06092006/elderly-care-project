@@ -478,7 +478,7 @@ class _CardMatchingGameScreenState extends State<CardMatchingGameScreen> {
     if (_selectedDifficulty == 3) crossAxisCount = 4;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7FAF9),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           isBn ? "কার্ড ম্যাচিং খেলা" : "Card Matching Game",

@@ -10,7 +10,10 @@ import 'word_recall_game_screen.dart';
 
 import '../services/api_service.dart';
 import '../services/call_service.dart';
+import '../services/app_settings.dart';
 import 'caretakers_screen.dart';
+import 'social_hub_screen.dart';
+import 'voice_assistant_screen.dart';
 
 class PatientDashboardScreen extends StatefulWidget {
   final PatientProfile profile;
@@ -36,6 +39,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     super.initState();
     _currentProfile = widget.profile;
     _isBengali = widget.isBengali;
+    _currentTheme = AppSettings.instance.theme;
     _fetchCaretakersFromDb();
   }
 
@@ -254,6 +258,18 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     );
   }
 
+  void _openVoiceAssistant() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => VoiceAssistantScreen(
+          isBengali: _isBengali,
+          userName: _currentProfile.name,
+        ),
+      ),
+    );
+  }
+
   void _openProfileMenu() {
     Navigator.push(
       context,
@@ -273,6 +289,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             });
           },
           onThemeChanged: (newTheme) {
+            AppSettings.instance.setTheme(newTheme);
             setState(() {
               _currentTheme = newTheme;
             });
@@ -360,14 +377,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                   // Voice Companion Quick Button
                   IconButton.filledTonal(
                     icon: const Icon(Icons.mic_rounded, color: AppTheme.primary, size: 26),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(isBn ? "এআই সহকারী প্রস্তুত" : "Voice AI ready"),
-                          backgroundColor: AppTheme.primary,
-                        ),
-                      );
-                    },
+                    onPressed: _openVoiceAssistant,
                     tooltip: "Voice Assistant",
                   ),
                 ],
@@ -450,7 +460,73 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // 3. Featured Cognitive Games Section
+                    // 3. Let's Connect - Social Interaction Section
+                    InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => SocialHubScreen(profile: _currentProfile, isBengali: isBn),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(22),
+                      child: Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF00897B), Color(0xFF4DB6AC)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(22),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF00695C).withAlpha(45),
+                              blurRadius: 12,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(13),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withAlpha(40),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.groups_rounded, color: Colors.white, size: 32),
+                            ),
+                            const SizedBox(width: 16),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Let's Connect!",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 19,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  SizedBox(height: 3),
+                                  Text(
+                                    "Meet new friends, chat, and share photos & voice",
+                                    style: TextStyle(color: Color(0xFFE0F2F1), fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 20),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // 4. Featured Cognitive Games Section
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
