@@ -8,6 +8,7 @@ import '../theme/app_theme.dart';
 import 'landing_screen.dart';
 import 'qr_scanner_screen.dart';
 import 'caretaker_analytics_dashboard_screen.dart';
+import 'nearby_doctors_screen.dart';
 
 class CaretakerDashboardScreen extends StatefulWidget {
   final UserSession session;
@@ -645,27 +646,36 @@ class _CaretakerDashboardScreenState extends State<CaretakerDashboardScreen> {
                         ],
                       ),
                       const SizedBox(height: 2),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF00796B).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          patient.relation,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF00796B),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF00796B).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              patient.relation,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF00796B),
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          Text(
+                            "Age: ${patient.age} yrs • 📍 ${patient.district}",
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF607D8B), fontWeight: FontWeight.w500),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-            const Divider(height: 24),
+            const Divider(height: 20),
             Row(
               children: [
                 const Icon(Icons.phone_outlined, size: 18, color: Color(0xFF607D8B)),
@@ -689,7 +699,7 @@ class _CaretakerDashboardScreenState extends State<CaretakerDashboardScreen> {
                   ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Row(
               children: [
                 const Icon(Icons.qr_code, size: 16, color: Color(0xFF90A4AE)),
@@ -705,6 +715,29 @@ class _CaretakerDashboardScreenState extends State<CaretakerDashboardScreen> {
                     style: const TextStyle(fontSize: 11, color: Color(0xFF90A4AE)),
                   ),
               ],
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => NearbyDoctorsScreen(
+                        patient: patient,
+                        caretakerSession: widget.session,
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.medical_services_outlined, size: 16, color: Color(0xFF00796B)),
+                label: const Text("Find Local Doctors & ASHA Workers Near Patient", style: TextStyle(fontSize: 12, color: Color(0xFF00796B), fontWeight: FontWeight.bold)),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFF00796B)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
             ),
           ],
         ),

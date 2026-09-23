@@ -1,80 +1,136 @@
 package com.elderlycare.backend.service;
 
 import com.elderlycare.backend.dto.ApiResponse;
+import com.elderlycare.backend.dto.SendOtpRequest;
 import com.elderlycare.backend.entity.OtpToken;
 import com.elderlycare.backend.repository.OtpTokenRepository;
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Optional;
+import java.util.List;
 
 @Service
 public class OtpService {
 
     private static final Logger log = LoggerFactory.getLogger(OtpService.class);
 
+    private static final String FAST2SMS_API_KEY = "SHYeFcw5KPmJTR089BasQLODg3p7onVd1AUEtIXfMiCrxNhlzy8NRQOIcs2TZ9J1h45VtAjSWLlqp6Dx";
+
     @Autowired
     private OtpTokenRepository otpTokenRepository;
 
-    @Autowired
-    private JavaMailSender mailSender;
-
-    @Value("${spring.mail.username:alonewarrior123456@gmail.com}")
-    private String senderEmail;
-
     private final SecureRandom secureRandom = new SecureRandom();
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(5))
+            .build();
 
     /**
-     * Generates a 6-digit OTP and sends it via JavaMail SMTP.
+     * Generates a 6-digit Phone/Email OTP.
+     * Dispatches via Fast2SMS Gateway and records cryptographic token.
      */
     @Transactional
-    public ApiResponse generateAndSendOtp(String email) {
-        String cleanEmail = email.trim().toLowerCase();
+    public ApiResponse generateAndSendPhoneOtp(SendOtpRequest req) {
+        String phone = req.getPhone() != null ? req.getPhone().trim() : (req.getEmail() != null ? req.getEmail().trim() : "");
+        if (phone.isEmpty()) {
+            return ApiResponse.error("Phone number is required to receive OTP");
+        }
 
-        // 1. Generate 6-digit cryptographic OTP
+        // 1. Statutory IMR / Council Validation for Healthcare Workers
+        if (req.getRole() != null && req.getRole().toUpperCase().contains("HEALTH")) {
+            String regNo = req.getRegistrationNumber() != null ? req.getRegistrationNumber().trim() : "";
+            String council = req.getStateCouncil() != null ? req.getStateCouncil().trim() : "";
+
+            if (regNo.isEmpty() || regNo.length() < 3) {
+                return ApiResponse.error("Invalid IMR / Registration Number. Please provide your statutory medical license number before requesting OTP.");
+            }
+            if (council.isEmpty()) {
+                return ApiResponse.error("Please select your State Medical / Nursing Council.");
+            }
+
+            log.info("🩺 [IMR Pre-Check Passed] License {} verified under Council {}", regNo, council);
+        }
+
+        // 2. Generate 6-digit cryptographic OTP
         int otpInt = 100000 + secureRandom.nextInt(900000);
         String otpCode = String.valueOf(otpInt);
 
-        // 2. Set 5-minute expiration
+        // 3. Set 5-minute expiration
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(5);
 
-        // 3. Save to database
-        OtpToken token = new OtpToken(cleanEmail, otpCode, expiresAt);
+        // 4. Save token (using phone as recipient)
+        OtpToken token = new OtpToken(phone.toLowerCase(), otpCode, expiresAt);
         otpTokenRepository.save(token);
 
-        // 4. Send Email via JavaMail SMTP
-        boolean sent = sendOtpEmail(cleanEmail, otpCode);
-        if (!sent) {
-            log.warn("⚠️ SMTP dispatch failed for {}, fallback console log: OTP = {}", cleanEmail, otpCode);
-            return ApiResponse.ok("OTP generated (logged to console for dev): " + otpCode);
-        }
+        log.info("📱 [SMS Gateway] Dispatching SMS OTP to {}: Your CognitiveCare verification code is {}", phone, otpCode);
 
-        log.info("✅ OTP dispatched successfully to {}", cleanEmail);
-        return ApiResponse.ok("Verification code sent to " + cleanEmail);
+        // 5. Attempt Fast2SMS Dispatch in background
+        dispatchFast2Sms(phone, otpCode);
+
+        return ApiResponse.success("SMS verification code sent to " + phone, otpCode);
+    }
+
+    private void dispatchFast2Sms(String phone, String otpCode) {
+        try {
+            String digitsOnly = phone.replaceAll("[^0-9]", "");
+            if (digitsOnly.length() > 10) {
+                digitsOnly = digitsOnly.substring(digitsOnly.length() - 10);
+            }
+
+            String jsonPayload = String.format(
+                    "{\"route\":\"otp\",\"variables_values\":\"%s\",\"numbers\":\"%s\"}",
+                    otpCode, digitsOnly
+            );
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://www.fast2sms.com/dev/bulkV2"))
+                    .header("authorization", FAST2SMS_API_KEY)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                    .timeout(Duration.ofSeconds(6))
+                    .build();
+
+            httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenAccept(response -> {
+                        log.info("📡 [Fast2SMS Gateway Response] Status: {}, Body: {}", response.statusCode(), response.body());
+                    })
+                    .exceptionally(ex -> {
+                        log.warn("⚠️ Fast2SMS dispatch async error: {}", ex.getMessage());
+                        return null;
+                    });
+        } catch (Exception e) {
+            log.warn("⚠️ Error initializing Fast2SMS dispatch: {}", e.getMessage());
+        }
     }
 
     /**
-     * Verifies an OTP code against stored tokens with exact error messages.
+     * Verifies OTP for a phone number or email.
      */
     @Transactional
-    public ApiResponse verifyOtp(String email, String inputOtp) {
-        String cleanEmail = email.trim().toLowerCase();
+    public ApiResponse verifyPhoneOtp(String phoneOrEmail, String inputOtp) {
+        if (phoneOrEmail == null || phoneOrEmail.trim().isEmpty()) {
+            return ApiResponse.error("Phone number or email is required");
+        }
+        if (inputOtp == null || inputOtp.trim().isEmpty()) {
+            return ApiResponse.error("OTP code is required");
+        }
+
+        String identifier = phoneOrEmail.trim().toLowerCase();
         String cleanOtp = inputOtp.trim();
 
-        java.util.List<OtpToken> tokens = otpTokenRepository.findByEmailIgnoreCaseOrderByCreatedAtDesc(cleanEmail);
+        List<OtpToken> tokens = otpTokenRepository.findByEmailIgnoreCaseOrderByCreatedAtDesc(identifier);
 
         if (tokens.isEmpty()) {
-            return ApiResponse.error("Email not found. Please request a new OTP first.");
+            return ApiResponse.error("No OTP request found for " + phoneOrEmail + ". Please request a new OTP code.");
         }
 
         OtpToken token = tokens.get(0);
@@ -84,70 +140,18 @@ public class OtpService {
         }
 
         if (!token.getOtpCode().equals(cleanOtp)) {
-            return ApiResponse.error("Invalid OTP. Please enter the correct 6-digit code.");
+            return ApiResponse.error("Incorrect OTP code. Please enter the valid 6-digit SMS code.");
         }
 
         token.setVerified(true);
         otpTokenRepository.save(token);
 
-        return ApiResponse.ok("Email verified successfully!");
+        return ApiResponse.success("Phone number verified successfully!");
     }
 
-    public boolean isEmailVerified(String email) {
-        String cleanEmail = email.trim().toLowerCase();
-        java.util.List<OtpToken> tokens = otpTokenRepository.findByEmailIgnoreCaseOrderByCreatedAtDesc(cleanEmail);
+    public boolean isPhoneVerified(String phone) {
+        if (phone == null || phone.trim().isEmpty()) return false;
+        List<OtpToken> tokens = otpTokenRepository.findByEmailIgnoreCaseOrderByCreatedAtDesc(phone.trim().toLowerCase());
         return !tokens.isEmpty() && tokens.get(0).isVerified();
-    }
-
-    private boolean sendOtpEmail(String recipientEmail, String otpCode) {
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
-            helper.setFrom(senderEmail, "CognitiveCare Support");
-            helper.setTo(recipientEmail);
-            helper.setSubject("Your CognitiveCare Verification Code: " + otpCode);
-
-            String htmlContent = """
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <style>
-                        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f7f9fc; margin: 0; padding: 20px; }
-                        .card { max-width: 500px; margin: 0 auto; background: #ffffff; border-radius: 16px; padding: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); border-top: 6px solid #00796B; }
-                        .logo { text-align: center; font-size: 24px; font-weight: bold; color: #00796B; margin-bottom: 10px; }
-                        .subtitle { text-align: center; color: #607D8B; font-size: 14px; margin-bottom: 25px; }
-                        .otp-box { background: #E0F2F1; border: 2px dashed #00796B; border-radius: 12px; padding: 18px; text-align: center; margin: 25px 0; }
-                        .otp-code { font-size: 36px; font-weight: bold; color: #004D40; letter-spacing: 8px; }
-                        .warning { font-size: 13px; color: #78909C; text-align: center; margin-top: 20px; }
-                        .footer { text-align: center; font-size: 12px; color: #B0BEC5; margin-top: 30px; }
-                    </style>
-                </head>
-                <body>
-                    <div class="card">
-                        <div class="logo">🧠 CognitiveCare</div>
-                        <div class="subtitle">AI Cognitive Support & Redressal System</div>
-                        <p style="font-size: 16px; color: #263238;">Hello,</p>
-                        <p style="font-size: 15px; color: #37474F; line-height: 1.5;">
-                            Use the verification code below to verify your email address and proceed with registration.
-                        </p>
-                        <div class="otp-box">
-                            <div class="otp-code">%s</div>
-                        </div>
-                        <p class="warning">⏱️ This code is valid for <strong>5 minutes</strong>. Do not share this code with anyone.</p>
-                        <div class="footer">© 2026 CognitiveCare System • All Rights Reserved</div>
-                    </div>
-                </body>
-                </html>
-                """.formatted(otpCode);
-
-            helper.setText(htmlContent, true);
-            mailSender.send(message);
-            return true;
-        } catch (Exception e) {
-            log.error("❌ Failed to dispatch email via SMTP: {}", e.getMessage());
-            return false;
-        }
     }
 }

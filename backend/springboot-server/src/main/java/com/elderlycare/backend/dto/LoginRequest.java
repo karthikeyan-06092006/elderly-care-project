@@ -1,13 +1,12 @@
 package com.elderlycare.backend.dto;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
 public class LoginRequest {
 
-    @NotBlank(message = "Email is required")
-    @Email(message = "Invalid email format")
     private String email;
+    private String phone;
+    private String identifier; // phone or email
 
     @NotBlank(message = "Password is required")
     private String password;
@@ -15,8 +14,8 @@ public class LoginRequest {
     public LoginRequest() {
     }
 
-    public LoginRequest(String email, String password) {
-        this.email = email;
+    public LoginRequest(String identifier, String password) {
+        this.identifier = identifier;
         this.password = password;
     }
 
@@ -26,6 +25,28 @@ public class LoginRequest {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getIdentifier() {
+        if (identifier != null && !identifier.trim().isEmpty()) {
+            return identifier.trim();
+        }
+        if (phone != null && !phone.trim().isEmpty()) {
+            return phone.trim();
+        }
+        return email != null ? email.trim() : "";
+    }
+
+    public void setIdentifier(String identifier) {
+        this.identifier = identifier;
     }
 
     public String getPassword() {

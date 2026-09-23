@@ -59,8 +59,15 @@ class ApiService {
     'Accept': 'application/json',
   };
 
-  /// Send OTP to user's email via Spring Boot JavaMail SMTP
-  static Future<ApiResult<void>> sendOtp(String email) async {
+  /// Send SMS OTP to user's phone number (with IMR validation for Doctors/Nurses)
+  static Future<ApiResult<String>> sendPhoneOtp({
+    required String phone,
+    String? email,
+    String? role,
+    String? registrationNumber,
+    String? stateCouncil,
+    String? name,
+  }) async {
     try {
       final activeUrl = await getWorkingBaseUrl();
       final url = Uri.parse('$activeUrl/send-otp');
@@ -68,15 +75,23 @@ class ApiService {
           .post(
             url,
             headers: _headers,
-            body: jsonEncode({'email': email.trim()}),
+            body: jsonEncode({
+              'phone': phone.trim(),
+              'email': email?.trim(),
+              'role': role,
+              'registrationNumber': registrationNumber?.trim(),
+              'stateCouncil': stateCouncil?.trim(),
+              'name': name?.trim(),
+            }),
           )
           .timeout(const Duration(seconds: 15));
 
       final body = jsonDecode(utf8.decode(response.bodyBytes));
-      final message = body['message'] ?? 'Unable to send OTP';
+      final message = body['message'] ?? 'Unable to send SMS OTP';
+      final String? otpCode = body['data']?.toString();
 
       if (response.statusCode == 200 && (body['success'] == true)) {
-        return ApiResult(success: true, message: message);
+        return ApiResult(success: true, message: message, data: otpCode);
       } else {
         return ApiResult(success: false, message: message);
       }
@@ -88,8 +103,11 @@ class ApiService {
     }
   }
 
-  /// Verify OTP token entered by user
-  static Future<ApiResult<void>> verifyOtp(String email, String otp) async {
+  /// Backward compatible sendOtp
+  static Future<ApiResult<String>> sendOtp(String email) => sendPhoneOtp(phone: email, email: email);
+
+  /// Verify 6-digit SMS OTP token entered by user
+  static Future<ApiResult<void>> verifyPhoneOtp({required String phone, required String otp}) async {
     try {
       final activeUrl = await getWorkingBaseUrl();
       final url = Uri.parse('$activeUrl/verify-otp');
@@ -98,7 +116,7 @@ class ApiService {
             url,
             headers: _headers,
             body: jsonEncode({
-              'email': email.trim(),
+              'phone': phone.trim(),
               'otp': otp.trim(),
             }),
           )
@@ -120,13 +138,28 @@ class ApiService {
     }
   }
 
-  /// Register new Patient or Caretaker account into Oracle DB
+  /// Backward compatible verifyOtp
+  static Future<ApiResult<void>> verifyOtp(String email, String otp) => verifyPhoneOtp(phone: email, otp: otp);
+
+  /// Extended register with demographic, location, and healthcare credentials
   static Future<ApiResult<UserSession>> register({
-    required String email,
+    String? email,
     required String password,
     required String name,
     required String phone,
     required String role,
+    int? age,
+    String? gender,
+    String? state,
+    String? district,
+    String? pincode,
+    String? profession,
+    String? specialization,
+    String? hospitalName,
+    String? stateCouncil,
+    String? registrationNumber,
+    String? nuid,
+    String? idProofUrl,
   }) async {
     try {
       final activeUrl = await getWorkingBaseUrl();
@@ -136,11 +169,23 @@ class ApiService {
             url,
             headers: _headers,
             body: jsonEncode({
-              'email': email.trim(),
+              'email': email?.trim() ?? '',
               'password': password,
               'name': name.trim(),
               'phone': phone.trim(),
               'role': role.toUpperCase(),
+              'age': age,
+              'gender': gender,
+              'state': state,
+              'district': district,
+              'pincode': pincode,
+              'profession': profession,
+              'specialization': specialization,
+              'hospitalName': hospitalName,
+              'stateCouncil': stateCouncil,
+              'registrationNumber': registrationNumber,
+              'nuid': nuid,
+              'idProofUrl': idProofUrl,
             }),
           )
           .timeout(const Duration(seconds: 15));
@@ -166,9 +211,9 @@ class ApiService {
     }
   }
 
-  /// Authenticate user credentials and return role-based profile session
+  /// Authenticate user credentials via Phone Number OR Email
   static Future<ApiResult<UserSession>> login({
-    required String email,
+    required String email, // can be phone number or email
     required String password,
   }) async {
     try {
@@ -179,7 +224,9 @@ class ApiService {
             url,
             headers: _headers,
             body: jsonEncode({
+              'identifier': email.trim(),
               'email': email.trim(),
+              'phone': email.trim(),
               'password': password,
             }),
           )
@@ -215,7 +262,6 @@ class ApiService {
   }) async {
     try {
       final activeUrl = await getWorkingBaseUrl();
-      // activeUrl is like http://.../api/auth -> replace with http://.../api
       final rootApiUrl = activeUrl.replaceAll('/auth', '');
       final url = Uri.parse('$rootApiUrl/caretaker/link-patient');
 
@@ -374,6 +420,188 @@ class ApiService {
     }
   }
 
+  /// Fetch verified healthcare workers filtered by region
+  static Future<List<HealthcareWorkerModel>> getNearbyHealthcareWorkers({String? state, String? district}) async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      final uri = Uri.parse('$rootApiUrl/healthcare/nearby').replace(queryParameters: {
+        if (state != null && state.isNotEmpty) 'state': state,
+        if (district != null && district.isNotEmpty) 'district': district,
+      });
+
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final body = jsonDecode(utf8.decode(response.bodyBytes));
+        if (body['success'] == true && body['data'] is List) {
+          return (body['data'] as List).map((x) => HealthcareWorkerModel.fromJson(x)).toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Request assignment between patient and healthcare worker
+  static Future<ApiResult<void>> requestHealthcareAssignment({
+    required String patientId,
+    required String workerId,
+    required String requestedBy,
+    String? notes,
+  }) async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      final url = Uri.parse('$rootApiUrl/healthcare/request-assignment');
+
+      final response = await http
+          .post(
+            url,
+            headers: _headers,
+            body: jsonEncode({
+              'patientId': patientId,
+              'workerId': workerId,
+              'requestedBy': requestedBy,
+              'notes': notes ?? '',
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final body = jsonDecode(utf8.decode(response.bodyBytes));
+      return ApiResult(
+        success: body['success'] == true,
+        message: body['message'] ?? 'Request submitted',
+      );
+    } catch (e) {
+      return ApiResult(success: false, message: 'Failed to request care assignment: $e');
+    }
+  }
+
+  /// Doctor/Nurse accepts or rejects patient assignment request
+  static Future<ApiResult<void>> respondHealthcareAssignment({
+    required int assignmentId,
+    required String action, // "ACCEPT" or "REJECT"
+  }) async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      final url = Uri.parse('$rootApiUrl/healthcare/respond-assignment');
+
+      final response = await http
+          .post(
+            url,
+            headers: _headers,
+            body: jsonEncode({
+              'assignmentId': assignmentId,
+              'action': action,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final body = jsonDecode(utf8.decode(response.bodyBytes));
+      return ApiResult(
+        success: body['success'] == true,
+        message: body['message'] ?? 'Status updated',
+      );
+    } catch (e) {
+      return ApiResult(success: false, message: 'Failed to respond: $e');
+    }
+  }
+
+  /// Doctor/Nurse gets assigned patients list
+  static Future<List<AssignedPatientModel>> getAssignedPatients(String workerId) async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      final url = Uri.parse('$rootApiUrl/healthcare/assigned-patients?workerId=$workerId');
+
+      final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final body = jsonDecode(utf8.decode(response.bodyBytes));
+        if (body['success'] == true && body['data'] is List) {
+          return (body['data'] as List).map((x) => AssignedPatientModel.fromJson(x)).toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Admin gets list of pending healthcare workers
+  static Future<List<AdminPendingWorkerModel>> getPendingWorkers() async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      final url = Uri.parse('$rootApiUrl/admin/pending-workers');
+
+      final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final body = jsonDecode(utf8.decode(response.bodyBytes));
+        if (body['success'] == true && body['data'] is List) {
+          return (body['data'] as List).map((x) => AdminPendingWorkerModel.fromJson(x)).toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Admin approves or rejects worker registration
+  static Future<ApiResult<void>> verifyWorker({
+    required String userId,
+    required String status, // "APPROVED" or "REJECTED"
+    String? reason,
+  }) async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      final url = Uri.parse('$rootApiUrl/admin/verify-worker');
+
+      final response = await http
+          .post(
+            url,
+            headers: _headers,
+            body: jsonEncode({
+              'userId': userId,
+              'status': status,
+              'reason': reason ?? '',
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final body = jsonDecode(utf8.decode(response.bodyBytes));
+      return ApiResult(
+        success: body['success'] == true,
+        message: body['message'] ?? 'Verification updated',
+      );
+    } catch (e) {
+      return ApiResult(success: false, message: 'Failed to update verification: $e');
+    }
+  }
+
+  /// Admin stats
+  static Future<Map<String, dynamic>> getAdminStats() async {
+    try {
+      final activeUrl = await getWorkingBaseUrl();
+      final rootApiUrl = activeUrl.replaceAll('/auth', '');
+      final url = Uri.parse('$rootApiUrl/admin/stats');
+
+      final response = await http.get(url, headers: _headers).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final body = jsonDecode(utf8.decode(response.bodyBytes));
+        if (body['success'] == true && body['data'] is Map<String, dynamic>) {
+          return body['data'];
+        }
+      }
+      return {};
+    } catch (e) {
+      return {};
+    }
+  }
+
   /// Update user's FCM device token
   static Future<bool> updateFcmToken({required String email, required String fcmToken}) async {
     try {
@@ -402,4 +630,3 @@ class ApiService {
     }
   }
 }
-

@@ -1,19 +1,19 @@
 package com.elderlycare.backend.dto;
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-
 public class SendOtpRequest {
 
-    @NotBlank(message = "Email is required")
-    @Email(message = "Invalid email format")
     private String email;
+    private String phone;
+    private String role; // "PATIENT", "CARETAKER", "HEALTHCARE_WORKER"
+    private String name;
+    private String stateCouncil;
+    private String registrationNumber;
 
     public SendOtpRequest() {
     }
 
-    public SendOtpRequest(String email) {
-        this.email = email;
+    public SendOtpRequest(String phone) {
+        this.phone = phone;
     }
 
     public String getEmail() {
@@ -22,5 +22,45 @@ public class SendOtpRequest {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getStateCouncil() {
+        return stateCouncil;
+    }
+
+    public void setStateCouncil(String stateCouncil) {
+        this.stateCouncil = stateCouncil;
+    }
+
+    public String getRegistrationNumber() {
+        return registrationNumber;
+    }
+
+    public void setRegistrationNumber(String registrationNumber) {
+        this.registrationNumber = registrationNumber;
     }
 }

@@ -1,13 +1,11 @@
 package com.elderlycare.backend.dto;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
 public class VerifyOtpRequest {
 
-    @NotBlank(message = "Email is required")
-    @Email(message = "Invalid email format")
     private String email;
+    private String phone;
 
     @NotBlank(message = "OTP code is required")
     private String otp;
@@ -15,8 +13,8 @@ public class VerifyOtpRequest {
     public VerifyOtpRequest() {
     }
 
-    public VerifyOtpRequest(String email, String otp) {
-        this.email = email;
+    public VerifyOtpRequest(String phone, String otp) {
+        this.phone = phone;
         this.otp = otp;
     }
 
@@ -26,6 +24,14 @@ public class VerifyOtpRequest {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 
     public String getOtp() {

@@ -5,6 +5,8 @@ import '../services/api_service.dart';
 import 'register_screen.dart';
 import 'patient_dashboard_screen.dart';
 import 'caretaker_dashboard_screen.dart';
+import 'healthcare_worker_dashboard_screen.dart';
+import 'admin_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final bool isBengali;
@@ -17,14 +19,14 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -33,10 +35,10 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
-      final email = _emailController.text.trim();
+      final identifier = _identifierController.text.trim();
       final password = _passwordController.text.trim();
 
-      final result = await ApiService.login(email: email, password: password);
+      final result = await ApiService.login(email: identifier, password: password);
 
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -44,7 +46,21 @@ class _LoginScreenState extends State<LoginScreen> {
       if (result.success && result.data != null) {
         final session = result.data!;
 
-        if (session.isPatient) {
+        if (session.isAdmin) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AdminDashboardScreen(session: session),
+            ),
+          );
+        } else if (session.isHealthcareWorker) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => HealthcareWorkerDashboardScreen(session: session),
+            ),
+          );
+        } else if (session.isPatient) {
           final profile = PatientProfile.fromSession(session);
           Navigator.pushReplacement(
             context,
@@ -105,8 +121,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 6),
                 Text(
                   isBn
-                      ? "ইমেইল এবং পাসওয়ার্ড দিয়ে প্রবেশ করুন"
-                      : "Enter your email and password to access your dashboard",
+                      ? "ফোন নম্বর বা ইমেইল এবং পাসওয়ার্ড দিন"
+                      : "Enter your Phone Number (or Email) and password to login",
                   style: const TextStyle(
                     fontSize: 15,
                     color: AppTheme.textSecondary,
@@ -114,22 +130,22 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                // Email Input
+                // Identifier Input (Phone or Email)
                 TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
+                  controller: _identifierController,
+                  keyboardType: TextInputType.text,
                   style: const TextStyle(fontSize: 17),
                   decoration: InputDecoration(
-                    labelText: isBn ? "ইমেইল ঠিকানা" : "Email Address",
-                    hintText: "name@example.com",
-                    prefixIcon: const Icon(Icons.email_outlined),
+                    labelText: isBn ? "ফোন নম্বর অথবা ইমেইল" : "Phone Number or Email",
+                    hintText: "9876543210 or admin@cognitivecare.com",
+                    prefixIcon: const Icon(Icons.person_outline_rounded),
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return isBn ? "ইমেইল লিখুন" : "Please enter your email";
+                      return isBn ? "ফোন নম্বর বা ইমেইল লিখুন" : "Please enter phone number or email";
                     }
-                    if (!value.contains('@') || !value.contains('.')) {
-                      return isBn ? "সঠিক ইমেইল লিখুন" : "Please enter a valid email address";
+                    if (value.trim().length < 4) {
+                      return isBn ? "সঠিক তথ্য লিখুন" : "Please enter a valid credential";
                     }
                     return null;
                   },
@@ -159,10 +175,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     if (value == null || value.trim().isEmpty) {
                       return isBn ? "পাসওয়ার্ড লিখুন" : "Please enter your password";
                     }
-                    if (value.length < 6) {
+                    if (value.length < 4) {
                       return isBn
-                          ? "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে"
-                          : "Password must be at least 6 characters";
+                          ? "পাসওয়ার্ড কমপক্ষে ৪ অক্ষরের হতে হবে"
+                          : "Password must be at least 4 characters";
                     }
                     return null;
                   },

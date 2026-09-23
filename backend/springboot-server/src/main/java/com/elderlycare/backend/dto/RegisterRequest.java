@@ -6,12 +6,10 @@ import jakarta.validation.constraints.Size;
 
 public class RegisterRequest {
 
-    @NotBlank(message = "Email is required")
-    @Email(message = "Invalid email format")
     private String email;
 
     @NotBlank(message = "Password is required")
-    @Size(min = 6, message = "Password must be at least 6 characters")
+    @Size(min = 4, message = "Password must be at least 4 characters")
     private String password;
 
     @NotBlank(message = "Full name is required")
@@ -20,18 +18,25 @@ public class RegisterRequest {
     @NotBlank(message = "Phone number is required")
     private String phone;
 
-    @NotBlank(message = "Role is required (PATIENT or CARETAKER)")
-    private String role; // "PATIENT" or "CARETAKER"
+    @NotBlank(message = "Role is required (PATIENT, CARETAKER, HEALTHCARE_WORKER, or ADMIN)")
+    private String role; // "PATIENT", "CARETAKER", "HEALTHCARE_WORKER", "ADMIN"
+
+    private Integer age;
+    private String gender;
+    private String state;
+    private String district;
+    private String pincode;
+
+    // Healthcare Worker Specific Fields
+    private String profession; // "DOCTOR", "NURSE", "ASHA_WORKER"
+    private String specialization;
+    private String hospitalName;
+    private String stateCouncil;
+    private String registrationNumber;
+    private String nuid;
+    private String idProofUrl;
 
     public RegisterRequest() {
-    }
-
-    public RegisterRequest(String email, String password, String name, String phone, String role) {
-        this.email = email;
-        this.password = password;
-        this.name = name;
-        this.phone = phone;
-        this.role = role;
     }
 
     public String getEmail() {
@@ -72,5 +77,101 @@ public class RegisterRequest {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public Integer getAge() {
+        return age;
+    }
+
+    public void setAge(Integer age) {
+        this.age = age;
+    }
+
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
+    public String getState() {
+        return state;
+    }
+
+    public void setState(String state) {
+        this.state = state;
+    }
+
+    public String getDistrict() {
+        return district;
+    }
+
+    public void setDistrict(String district) {
+        this.district = district;
+    }
+
+    public String getPincode() {
+        return pincode;
+    }
+
+    public void setPincode(String pincode) {
+        this.pincode = pincode;
+    }
+
+    public String getProfession() {
+        return profession;
+    }
+
+    public void setProfession(String profession) {
+        this.profession = profession;
+    }
+
+    public String getSpecialization() {
+        return specialization;
+    }
+
+    public void setSpecialization(String specialization) {
+        this.specialization = specialization;
+    }
+
+    public String getHospitalName() {
+        return hospitalName;
+    }
+
+    public void setHospitalName(String hospitalName) {
+        this.hospitalName = hospitalName;
+    }
+
+    public String getStateCouncil() {
+        return stateCouncil;
+    }
+
+    public void setStateCouncil(String stateCouncil) {
+        this.stateCouncil = stateCouncil;
+    }
+
+    public String getRegistrationNumber() {
+        return registrationNumber;
+    }
+
+    public void setRegistrationNumber(String registrationNumber) {
+        this.registrationNumber = registrationNumber;
+    }
+
+    public String getNuid() {
+        return nuid;
+    }
+
+    public void setNuid(String nuid) {
+        this.nuid = nuid;
+    }
+
+    public String getIdProofUrl() {
+        return idProofUrl;
+    }
+
+    public void setIdProofUrl(String idProofUrl) {
+        this.idProofUrl = idProofUrl;
     }
 }

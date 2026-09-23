@@ -14,6 +14,9 @@ public interface EmergencyAlertRepository extends JpaRepository<EmergencyAlert, 
     @Query("SELECT a FROM EmergencyAlert a WHERE a.status = 'ACTIVE' ORDER BY a.createdAt DESC")
     List<EmergencyAlert> findAllActiveAlerts();
 
+    @Query("SELECT COUNT(a) FROM EmergencyAlert a WHERE a.status = 'ACTIVE'")
+    long countActiveAlerts();
+
     @Query("SELECT a FROM EmergencyAlert a WHERE a.patientId = :patientId AND a.status = 'ACTIVE' ORDER BY a.createdAt DESC")
     List<EmergencyAlert> findActiveAlertsByPatientId(@Param("patientId") String patientId);
 

@@ -9,7 +9,18 @@ public class AuthResponse {
     private String email;
     private String name;
     private String phone;
-    private String role; // "PATIENT" or "CARETAKER"
+    private String role; // "PATIENT", "CARETAKER", "HEALTHCARE_WORKER", "ADMIN"
+    private Integer age;
+    private String gender;
+    private String state;
+    private String district;
+    private String pincode;
+    private String profession;
+    private String specialization;
+    private String hospitalName;
+    private String stateCouncil;
+    private String registrationNumber;
+    private String verificationStatus; // "PENDING", "APPROVED", "REJECTED"
     private String qrCodeToken;
     private String registeredDate;
 
@@ -20,21 +31,6 @@ public class AuthResponse {
         AuthResponse response = new AuthResponse();
         response.setSuccess(false);
         response.setMessage(message);
-        return response;
-    }
-
-    public static AuthResponse success(String message, String token, String userId, String email, String name, String phone, String role, String qrCodeToken, String registeredDate) {
-        AuthResponse response = new AuthResponse();
-        response.setSuccess(true);
-        response.setMessage(message);
-        response.setToken(token);
-        response.setUserId(userId);
-        response.setEmail(email);
-        response.setName(name);
-        response.setPhone(phone);
-        response.setRole(role);
-        response.setQrCodeToken(qrCodeToken);
-        response.setRegisteredDate(registeredDate);
         return response;
     }
 
@@ -101,6 +97,94 @@ public class AuthResponse {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public Integer getAge() {
+        return age;
+    }
+
+    public void setAge(Integer age) {
+        this.age = age;
+    }
+
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
+    public String getState() {
+        return state;
+    }
+
+    public void setState(String state) {
+        this.state = state;
+    }
+
+    public String getDistrict() {
+        return district;
+    }
+
+    public void setDistrict(String district) {
+        this.district = district;
+    }
+
+    public String getPincode() {
+        return pincode;
+    }
+
+    public void setPincode(String pincode) {
+        this.pincode = pincode;
+    }
+
+    public String getProfession() {
+        return profession;
+    }
+
+    public void setProfession(String profession) {
+        this.profession = profession;
+    }
+
+    public String getSpecialization() {
+        return specialization;
+    }
+
+    public void setSpecialization(String specialization) {
+        this.specialization = specialization;
+    }
+
+    public String getHospitalName() {
+        return hospitalName;
+    }
+
+    public void setHospitalName(String hospitalName) {
+        this.hospitalName = hospitalName;
+    }
+
+    public String getStateCouncil() {
+        return stateCouncil;
+    }
+
+    public void setStateCouncil(String stateCouncil) {
+        this.stateCouncil = stateCouncil;
+    }
+
+    public String getRegistrationNumber() {
+        return registrationNumber;
+    }
+
+    public void setRegistrationNumber(String registrationNumber) {
+        this.registrationNumber = registrationNumber;
+    }
+
+    public String getVerificationStatus() {
+        return verificationStatus;
+    }
+
+    public void setVerificationStatus(String verificationStatus) {
+        this.verificationStatus = verificationStatus;
     }
 
     public String getQrCodeToken() {

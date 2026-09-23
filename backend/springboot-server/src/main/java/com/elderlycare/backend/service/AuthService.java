@@ -5,6 +5,7 @@ import com.elderlycare.backend.dto.LoginRequest;
 import com.elderlycare.backend.dto.RegisterRequest;
 import com.elderlycare.backend.entity.User;
 import com.elderlycare.backend.repository.UserRepository;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -29,65 +30,144 @@ public class AuthService {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd MMMM yyyy");
 
+    @PostConstruct
+    public void seedDefaultAdmin() {
+        try {
+            String adminEmail = "admin@cognitivecare.com";
+            if (userRepository.findByEmailIgnoreCase(adminEmail).isEmpty()) {
+                User admin = new User();
+                admin.setUserId("ADMIN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+                admin.setEmail(adminEmail);
+                admin.setPasswordHash(passwordEncoder.encode("admin123"));
+                admin.setRole("ADMIN");
+                admin.setFullName("Super Administrator (NER Health)");
+                admin.setPhoneNumber("+919876543210");
+                admin.setState("Assam");
+                admin.setDistrict("Kamrup Metro");
+                admin.setVerificationStatus("APPROVED");
+                admin.setQrCodeToken("ADMIN-ROOT");
+                admin.setCreatedAt(LocalDateTime.now());
+                userRepository.save(admin);
+                System.out.println("✅ [Seed] Default Primary Admin user seeded: admin@cognitivecare.com / admin123");
+            }
+        } catch (Exception e) {
+            System.err.println("⚠️ Could not seed admin user: " + e.getMessage());
+        }
+    }
+
     @Transactional
     public AuthResponse register(RegisterRequest req) {
-        String cleanEmail = req.getEmail().trim().toLowerCase();
+        String cleanPhone = req.getPhone() != null ? req.getPhone().trim() : "";
+        if (cleanPhone.isEmpty()) {
+            return AuthResponse.error("Phone number is required for registration.");
+        }
 
-        // 1. Check if email already exists
-        if (userRepository.findByEmailIgnoreCase(cleanEmail).isPresent()) {
+        String cleanEmail = (req.getEmail() != null && !req.getEmail().trim().isEmpty())
+                ? req.getEmail().trim().toLowerCase()
+                : cleanPhone.replaceAll("[^0-9]", "") + "@cognitivecare.user";
+
+        // 1. Check if phone number already exists
+        if (userRepository.findByPhoneNumber(cleanPhone).isPresent()) {
+            return AuthResponse.error("Phone number " + cleanPhone + " is already registered. Please log in.");
+        }
+        if (req.getEmail() != null && !req.getEmail().trim().isEmpty() && userRepository.findByEmailIgnoreCase(cleanEmail).isPresent()) {
             return AuthResponse.error("Email is already registered. Please log in instead.");
         }
 
-        // 2. Format role (default to PATIENT if unspecified)
-        String role = (req.getRole() != null && req.getRole().trim().equalsIgnoreCase("CARETAKER"))
-                ? "CARETAKER"
-                : "PATIENT";
+        // 2. Format role
+        String rawRole = req.getRole() != null ? req.getRole().trim().toUpperCase() : "PATIENT";
+        String role;
+        if (rawRole.contains("HEALTH") || rawRole.contains("DOCTOR") || rawRole.contains("NURSE")) {
+            role = "HEALTHCARE_WORKER";
+        } else if (rawRole.contains("CARE")) {
+            role = "CARETAKER";
+        } else if (rawRole.contains("ADMIN")) {
+            role = "ADMIN";
+        } else {
+            role = "PATIENT";
+        }
 
         // 3. Generate IDs
         String userId = UUID.randomUUID().toString();
-        String prefix = role.equals("PATIENT") ? "PATIENT" : "CARETAKER";
+        String prefix = role.equals("PATIENT") ? "PATIENT" : (role.equals("HEALTHCARE_WORKER") ? "MED" : "CARETAKER");
         String qrCodeToken = prefix + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
         // 4. Hash password with BCrypt
         String passwordHash = passwordEncoder.encode(req.getPassword().trim());
 
-        // 5. Create and save user
+        // 5. Verification status
+        String verificationStatus = role.equals("HEALTHCARE_WORKER") ? "PENDING" : "APPROVED";
+
+        // 6. Create and save user
         LocalDateTime now = LocalDateTime.now();
-        User user = new User(
-                userId,
-                cleanEmail,
-                passwordHash,
-                role,
-                req.getName().trim(),
-                req.getPhone().trim(),
-                qrCodeToken,
-                now
-        );
+        User user = new User();
+        user.setUserId(userId);
+        user.setEmail(cleanEmail);
+        user.setPasswordHash(passwordHash);
+        user.setRole(role);
+        user.setFullName(req.getName().trim());
+        user.setPhoneNumber(cleanPhone);
+        user.setAge(req.getAge());
+        user.setGender(req.getGender());
+        user.setState(req.getState());
+        user.setDistrict(req.getDistrict());
+        user.setPincode(req.getPincode());
+        user.setProfession(req.getProfession());
+        user.setSpecialization(req.getSpecialization());
+        user.setHospitalName(req.getHospitalName());
+        user.setStateCouncil(req.getStateCouncil());
+        user.setRegistrationNumber(req.getRegistrationNumber());
+        user.setNuid(req.getNuid());
+        user.setIdProofUrl(req.getIdProofUrl());
+        user.setVerificationStatus(verificationStatus);
+        user.setQrCodeToken(qrCodeToken);
+        user.setCreatedAt(now);
+
         userRepository.save(user);
 
         String dummyJwtToken = "JWT-" + UUID.randomUUID().toString();
         String formattedDate = now.format(DATE_FORMATTER);
 
-        return AuthResponse.success(
-                "Account created successfully!",
-                dummyJwtToken,
-                user.getUserId(),
-                user.getEmail(),
-                user.getFullName(),
-                user.getPhoneNumber(),
-                user.getRole(),
-                user.getQrCodeToken(),
-                formattedDate
-        );
+        AuthResponse resp = new AuthResponse();
+        resp.setSuccess(true);
+        resp.setMessage(role.equals("HEALTHCARE_WORKER")
+                ? "Registration submitted for verification! Your credentials will be reviewed by the Administrator."
+                : "Account created successfully!");
+        resp.setToken(dummyJwtToken);
+        resp.setUserId(user.getUserId());
+        resp.setEmail(user.getEmail());
+        resp.setName(user.getFullName());
+        resp.setPhone(user.getPhoneNumber());
+        resp.setRole(user.getRole());
+        resp.setAge(user.getAge());
+        resp.setGender(user.getGender());
+        resp.setState(user.getState());
+        resp.setDistrict(user.getDistrict());
+        resp.setPincode(user.getPincode());
+        resp.setProfession(user.getProfession());
+        resp.setSpecialization(user.getSpecialization());
+        resp.setHospitalName(user.getHospitalName());
+        resp.setStateCouncil(user.getStateCouncil());
+        resp.setRegistrationNumber(user.getRegistrationNumber());
+        resp.setVerificationStatus(user.getVerificationStatus());
+        resp.setQrCodeToken(user.getQrCodeToken());
+        resp.setRegisteredDate(formattedDate);
+
+        return resp;
     }
 
     public AuthResponse login(LoginRequest req) {
-        String cleanEmail = req.getEmail().trim().toLowerCase();
+        String identifier = req.getIdentifier();
 
-        // 1. Find user by email
-        Optional<User> userOpt = userRepository.findByEmailIgnoreCase(cleanEmail);
+        // 1. Find user by phone number OR email
+        Optional<User> userOpt = userRepository.findByEmailOrPhone(identifier);
         if (userOpt.isEmpty()) {
-            return AuthResponse.error("Email not found. Please check your email or register a new account.");
+            // Also try exact phone lookup if formatted
+            userOpt = userRepository.findByPhoneNumber(identifier);
+        }
+
+        if (userOpt.isEmpty()) {
+            return AuthResponse.error("No account found with phone/email: " + identifier + ". Please register.");
         }
 
         User user = userOpt.get();
@@ -97,22 +177,35 @@ public class AuthService {
             return AuthResponse.error("Incorrect password. Please try again.");
         }
 
-        // 3. Return role-based auth response
+        // 3. Return role-based auth response with all demographic and verification details
         String dummyJwtToken = "JWT-" + UUID.randomUUID().toString();
         String formattedDate = (user.getCreatedAt() != null)
                 ? user.getCreatedAt().format(DATE_FORMATTER)
                 : "15 September 2026";
 
-        return AuthResponse.success(
-                "Login successful!",
-                dummyJwtToken,
-                user.getUserId(),
-                user.getEmail(),
-                user.getFullName(),
-                user.getPhoneNumber(),
-                user.getRole(),
-                user.getQrCodeToken(),
-                formattedDate
-        );
+        AuthResponse resp = new AuthResponse();
+        resp.setSuccess(true);
+        resp.setMessage("Login successful!");
+        resp.setToken(dummyJwtToken);
+        resp.setUserId(user.getUserId());
+        resp.setEmail(user.getEmail());
+        resp.setName(user.getFullName());
+        resp.setPhone(user.getPhoneNumber());
+        resp.setRole(user.getRole());
+        resp.setAge(user.getAge());
+        resp.setGender(user.getGender());
+        resp.setState(user.getState());
+        resp.setDistrict(user.getDistrict());
+        resp.setPincode(user.getPincode());
+        resp.setProfession(user.getProfession());
+        resp.setSpecialization(user.getSpecialization());
+        resp.setHospitalName(user.getHospitalName());
+        resp.setStateCouncil(user.getStateCouncil());
+        resp.setRegistrationNumber(user.getRegistrationNumber());
+        resp.setVerificationStatus(user.getVerificationStatus() != null ? user.getVerificationStatus() : "APPROVED");
+        resp.setQrCodeToken(user.getQrCodeToken());
+        resp.setRegisteredDate(formattedDate);
+
+        return resp;
     }
 }
