@@ -26,11 +26,10 @@ class ApiService {
     if (Platform.isAndroid) {
       return const [
         'http://127.0.0.1:8088/api/auth', // USB adb reverse / localhost
+        'http://10.255.27.145:8088/api/auth', // Current Wi-Fi LAN IP (this PC)
         'http://10.191.241.233:8088/api/auth', // Wi-Fi LAN IP (this PC)
         'http://192.168.56.1:8088/api/auth', // Ethernet/VirtualBox host
         'http://10.0.2.2:8088/api/auth',   // Android Emulator host alias
-        'http://172.20.10.14:8088/api/auth', // old Wi-Fi LAN IP
-        'http://172.16.72.28:8088/api/auth', // old Ethernet LAN IP
       ];
     }
     return const ['http://localhost:8088/api/auth'];
