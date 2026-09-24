@@ -49,6 +49,7 @@ dependencies:
   mobile_scanner: ^7.4.2
   record: ^7.1.1
   speech_to_text: ^7.5.0
+  flutter_timezone: ^5.1.0
 
 dev_dependencies:
   flutter_test:

@@ -49,11 +49,22 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     DailyStreakService.instance.load();
     _scheduleMidnightRefresh();
     _fetchCaretakersFromDb();
+    _syncPatientAlarms();
     AlarmService.instance.startRoutineChecker(
       context: context,
       patientId: _currentProfile.userId.isNotEmpty ? _currentProfile.userId : _currentProfile.email,
       onStatusChanged: () {},
     );
+  }
+
+  Future<void> _syncPatientAlarms() async {
+    try {
+      final pid = _currentProfile.userId.isNotEmpty ? _currentProfile.userId : _currentProfile.email;
+      final res = await ApiService.getPatientReminders(pid);
+      if (res.success && res.data != null) {
+        await AlarmService.instance.syncAllAlarms(res.data!);
+      }
+    } catch (_) {}
   }
 
   @override

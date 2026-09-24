@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import '../models/reminder_model.dart';
@@ -45,6 +47,17 @@ class AlarmService {
     if (_isInitialized) return;
     try {
       tz.initializeTimeZones();
+      try {
+        final tzInfo = await FlutterTimezone.getLocalTimezone();
+        final String currentTimeZone = tzInfo.identifier;
+        tz.setLocalLocation(tz.getLocation(currentTimeZone));
+        debugPrint('[AlarmService] 🌍 Local timezone configured: $currentTimeZone');
+      } catch (e) {
+        debugPrint('[AlarmService] ⚠️ Native timezone lookup fallback: $e');
+        try {
+          tz.setLocalLocation(tz.getLocation('Asia/Kolkata'));
+        } catch (_) {}
+      }
 
       const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
       const InitializationSettings initSettings = InitializationSettings(
@@ -61,19 +74,21 @@ class AlarmService {
 
       final androidPlugin = _localNotifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
       if (androidPlugin != null) {
-        const AndroidNotificationChannel alarmChannel = AndroidNotificationChannel(
-          'elderly_care_alarms_channel',
+        final vibrationPattern = Int64List.fromList([0, 1000, 500, 1000, 500, 1000, 500, 1000]);
+        final AndroidNotificationChannel alarmChannel = AndroidNotificationChannel(
+          'elderly_care_routine_alarms_v2',
           'Elderly Care Alarms & Routine Reminders',
-          description: 'Plays loud alarms and voice reminders for medicines, meals, and sleep routines even when screen is locked.',
+          description: 'High-priority exact alarms for medicines, meals, and sleep routines even when screen is locked or app is closed.',
           importance: Importance.max,
           playSound: true,
           enableVibration: true,
+          vibrationPattern: vibrationPattern,
           audioAttributesUsage: AudioAttributesUsage.alarm,
         );
 
         await androidPlugin.createNotificationChannel(alarmChannel);
-        await androidPlugin.requestExactAlarmsPermission();
         await androidPlugin.requestNotificationsPermission();
+        await androidPlugin.requestExactAlarmsPermission();
       }
 
       await _tts.setSpeechRate(0.45); // Gentle, understandable speed for elderly
@@ -142,10 +157,13 @@ class AlarmService {
         now.day,
         hour,
         minute,
+        0,
       );
 
-      // If scheduled time already passed today, schedule for next occurrence tomorrow
-      if (scheduledDate.isBefore(now)) {
+      if (now.hour == hour && now.minute == minute) {
+        // Scheduled for current minute: trigger in 4 seconds for immediate testing / alarm response
+        scheduledDate = now.add(const Duration(seconds: 4));
+      } else if (scheduledDate.isBefore(now)) {
         scheduledDate = scheduledDate.add(const Duration(days: 1));
       }
 
@@ -157,16 +175,18 @@ class AlarmService {
             : "Hello! It is time for your reminder: ${reminder.title}";
       }
 
+      final vibrationPattern = Int64List.fromList([0, 1000, 500, 1000, 500, 1000, 500, 1000]);
       final androidDetails = AndroidNotificationDetails(
-        'elderly_care_alarms_channel',
+        'elderly_care_routine_alarms_v2',
         'Elderly Care Alarms & Routine Reminders',
-        channelDescription: 'High-priority exact alarms for medicines, meals, and sleep routines.',
+        channelDescription: 'High-priority exact alarms for medicines, meals, and sleep routines even when screen is off.',
         importance: Importance.max,
         priority: Priority.max,
         category: AndroidNotificationCategory.alarm,
         audioAttributesUsage: AudioAttributesUsage.alarm,
         playSound: true,
         enableVibration: true,
+        vibrationPattern: vibrationPattern,
         fullScreenIntent: true,
         visibility: NotificationVisibility.public,
         ongoing: true,
