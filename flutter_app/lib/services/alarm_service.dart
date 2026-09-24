@@ -11,17 +11,30 @@ import '../models/reminder_model.dart';
 import 'api_service.dart';
 
 @pragma('vm:entry-point')
-void notificationTapBackground(NotificationResponse notificationResponse) {
+void notificationTapBackground(NotificationResponse notificationResponse) async {
   debugPrint('[AlarmService] Background notification action tapped: ${notificationResponse.actionId}, payload: ${notificationResponse.payload}');
   if (notificationResponse.payload != null) {
     try {
       final map = jsonDecode(notificationResponse.payload!);
       final String reminderId = map['reminderId']?.toString() ?? '';
+      final String title = map['title']?.toString() ?? 'Reminder';
+      final String category = map['category']?.toString() ?? 'MEDICINE';
+      final String voiceMsg = map['voiceMessage']?.toString() ?? '';
+      final String voiceLang = map['voiceLanguage']?.toString() ?? 'en';
+
       if (reminderId.isNotEmpty) {
         if (notificationResponse.actionId == 'taken_action') {
-          ApiService.updateReminderStatus(reminderId: reminderId, status: 'TAKEN');
+          await ApiService.updateReminderStatus(reminderId: reminderId, status: 'TAKEN');
         } else if (notificationResponse.actionId == 'snooze_action') {
-          ApiService.updateReminderStatus(reminderId: reminderId, status: 'SNOOZED');
+          await ApiService.updateReminderStatus(reminderId: reminderId, status: 'SNOOZED');
+          await AlarmService.instance.scheduleSnoozeAlarm(
+            reminderId: reminderId,
+            title: title,
+            category: category,
+            voiceMessage: voiceMsg,
+            voiceLanguage: voiceLang,
+            snoozeMinutes: 10,
+          );
         }
       }
     } catch (e) {
@@ -121,6 +134,14 @@ class AlarmService {
           stopVoice();
           if (reminderId.isNotEmpty) {
             ApiService.updateReminderStatus(reminderId: reminderId, status: 'SNOOZED');
+            scheduleSnoozeAlarm(
+              reminderId: reminderId,
+              title: title,
+              category: map['category'] ?? 'Reminder',
+              voiceMessage: voiceMsg,
+              voiceLanguage: map['voiceLanguage'] ?? 'en',
+              snoozeMinutes: 10,
+            );
           }
         } else {
           // Speak aloud on notification tap
@@ -129,6 +150,69 @@ class AlarmService {
       } catch (e) {
         debugPrint('[AlarmService] Error handling response: $e');
       }
+    }
+  }
+
+  /// Schedules a one-time Snooze Alarm for N minutes in the future
+  Future<void> scheduleSnoozeAlarm({
+    required String reminderId,
+    required String title,
+    required String category,
+    required String voiceMessage,
+    required String voiceLanguage,
+    int snoozeMinutes = 10,
+  }) async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      final now = tz.TZDateTime.now(tz.local);
+      final snoozeTime = now.add(Duration(minutes: snoozeMinutes));
+
+      final vibrationPattern = Int64List.fromList([0, 1000, 500, 1000, 500, 1000, 500, 1000]);
+      final androidDetails = AndroidNotificationDetails(
+        'elderly_care_routine_alarms_v2',
+        'Elderly Care Alarms & Routine Reminders',
+        channelDescription: 'High-priority exact alarms for medicines, meals, and sleep routines even when screen is off.',
+        importance: Importance.max,
+        priority: Priority.max,
+        category: AndroidNotificationCategory.alarm,
+        audioAttributesUsage: AudioAttributesUsage.alarm,
+        playSound: true,
+        enableVibration: true,
+        vibrationPattern: vibrationPattern,
+        fullScreenIntent: true,
+        visibility: NotificationVisibility.public,
+        ongoing: true,
+        autoCancel: false,
+        actions: [
+          const AndroidNotificationAction('snooze_action', 'Snooze (10m)'),
+          const AndroidNotificationAction('taken_action', 'Mark as Taken ✓', showsUserInterface: true),
+        ],
+      );
+
+      final payload = jsonEncode({
+        'reminderId': reminderId,
+        'title': title,
+        'category': category,
+        'voiceMessage': voiceMessage,
+        'voiceLanguage': voiceLanguage,
+      });
+
+      final notifId = _getNotificationId(reminderId);
+
+      await _localNotifications.zonedSchedule(
+        id: notifId,
+        title: '⏰ [Snoozed] $category: $title',
+        body: voiceMessage.isNotEmpty ? voiceMessage : "Snoozed reminder: $title",
+        scheduledDate: snoozeTime,
+        notificationDetails: NotificationDetails(android: androidDetails),
+        androidScheduleMode: AndroidScheduleMode.alarmClock,
+        payload: payload,
+      );
+
+      debugPrint('[AlarmService] 💤 Snooze alarm scheduled for $snoozeTime (in $snoozeMinutes mins)');
+    } catch (e) {
+      debugPrint('[AlarmService] Snooze error: $e');
     }
   }
 
@@ -383,6 +467,14 @@ class AlarmService {
               await ApiService.updateReminderStatus(
                 reminderId: reminder.reminderId,
                 status: 'SNOOZED',
+              );
+              await scheduleSnoozeAlarm(
+                reminderId: reminder.reminderId,
+                title: reminder.title,
+                category: reminder.categoryDisplayName,
+                voiceMessage: reminder.voiceMessage,
+                voiceLanguage: reminder.voiceLanguage,
+                snoozeMinutes: 10,
               );
               onStatusChanged();
               if (context.mounted) {
