@@ -87,6 +87,17 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
     super.dispose();
   }
 
+  Future<void> _switchLanguage() async {
+    final nextBn = !_isBn;
+    setState(() {
+      _isBn = nextBn;
+      _liveTranscript = '';
+      _lastReply = '';
+    });
+    await _service.ensureInitialized(language: nextBn ? 'bn' : 'en');
+    await _service.greet();
+  }
+
   Future<void> _toggleMic() async {
     if (_micOn) {
       await _service.stopListening();
@@ -228,6 +239,29 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
     return Scaffold(
       appBar: AppBar(
         title: Text(isBn ? 'ভয়েস সহকারী' : 'Voice Assistant'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: ActionChip(
+              avatar: Icon(
+                Icons.translate_rounded,
+                size: 16,
+                color: isBn ? Colors.white : AppTheme.primary,
+              ),
+              label: Text(
+                isBn ? "বাংলা (BN)" : "English (EN)",
+                style: TextStyle(
+                  color: isBn ? Colors.white : AppTheme.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+              backgroundColor: isBn ? const Color(0xFF00796B) : Colors.white,
+              side: const BorderSide(color: AppTheme.primary, width: 1.5),
+              onPressed: _switchLanguage,
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Padding(

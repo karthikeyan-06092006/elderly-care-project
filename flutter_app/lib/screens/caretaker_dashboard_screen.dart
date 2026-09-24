@@ -813,9 +813,13 @@ class _CaretakerDashboardScreenState extends State<CaretakerDashboardScreen> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            "Age: ${patient.age} yrs • 📍 ${patient.district}",
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF607D8B), fontWeight: FontWeight.w500),
+                          Expanded(
+                            child: Text(
+                              "Age: ${patient.age} yrs • 📍 ${patient.district}",
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF607D8B), fontWeight: FontWeight.w500),
+                            ),
                           ),
                         ],
                       ),

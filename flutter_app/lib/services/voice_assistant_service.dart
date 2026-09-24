@@ -57,9 +57,8 @@ class VoiceAssistantService {
           },
         );
       }
-      if (!_initialized) return false;
       await _initTts();
-      return true;
+      return _initialized;
     } catch (e) {
       debugPrint('[Voice] init failed: $e');
       return false;
@@ -68,7 +67,14 @@ class VoiceAssistantService {
 
   Future<void> _initTts() async {
     try {
-      await _tts.setLanguage(_language == 'bn' ? 'bn-BD' : 'en-US');
+      if (_language == 'bn') {
+        final res = await _tts.setLanguage('bn-IN');
+        if (res != 1) {
+          await _tts.setLanguage('bn-BD');
+        }
+      } else {
+        await _tts.setLanguage('en-IN');
+      }
       await _tts.setSpeechRate(0.42);
       await _tts.setVolume(1.0);
       await _tts.setPitch(1.0);
@@ -118,7 +124,7 @@ class VoiceAssistantService {
           listenMode: stt.ListenMode.dictation,
           listenFor: const Duration(seconds: 12),
           pauseFor: const Duration(seconds: 3),
-          localeId: _language == 'bn' ? 'bn-BD' : 'en-US',
+          localeId: _language == 'bn' ? 'bn_IN' : 'en_IN',
         ),
       );
       _speechListening = true;

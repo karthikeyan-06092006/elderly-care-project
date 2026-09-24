@@ -316,14 +316,33 @@ class _RemindersScreenState extends State<RemindersScreen> {
                         TextField(
                           controller: voiceMsgController,
                           maxLines: 2,
-                          style: const TextStyle(color: Colors.white, fontSize: 14),
-                          decoration: const InputDecoration(
-                            hintText: "Spoken voice message when alarm sounds...",
-                            hintStyle: TextStyle(color: Colors.white30, fontSize: 13),
-                            border: InputBorder.none,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          cursorColor: Colors.cyanAccent,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: const Color(0xFF1E293B),
+                            hintText: isBn ? "অ্যালার্ম বাজলে যে বার্তাটি বলা হবে..." : "Spoken voice message when alarm sounds...",
+                            hintStyle: const TextStyle(color: Colors.white54, fontSize: 13),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: Colors.cyanAccent.withValues(alpha: 0.3)),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: Colors.white24),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: Colors.cyanAccent, width: 1.5),
+                            ),
                           ),
                         ),
-                        const Divider(color: Colors.white10),
+                        const SizedBox(height: 6),
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton.icon(
