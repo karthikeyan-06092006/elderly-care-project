@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'services/notification_service.dart';
+import 'services/alarm_service.dart';
 import 'services/app_settings.dart';
 import 'theme/app_theme.dart';
 import 'screens/landing_screen.dart';
@@ -16,6 +17,7 @@ void main() async {
     debugPrint("❌ Firebase Initialized with Warning: $e");
   }
 
+  await AlarmService.instance.initialize();
   await AppSettings.instance.load();
 
   runApp(const CognitiveCareApp());

@@ -44,6 +44,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
       _isLoading = false;
       if (result.success && result.data != null) {
         _reminders = result.data!;
+        AlarmService.instance.syncAllAlarms(_reminders);
       }
     });
   }
@@ -751,6 +752,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
                           );
 
                           if (confirm == true) {
+                            await AlarmService.instance.cancelSystemAlarm(item.reminderId);
                             await ApiService.deleteReminder(item.reminderId);
                             _loadReminders();
                           }
@@ -768,6 +770,11 @@ class _RemindersScreenState extends State<RemindersScreen> {
               activeColor: item.color,
               onChanged: (val) async {
                 setState(() => item.isActive = val);
+                if (val) {
+                  await AlarmService.instance.scheduleSystemAlarm(item);
+                } else {
+                  await AlarmService.instance.cancelSystemAlarm(item.reminderId);
+                }
                 await ApiService.updateReminderStatus(
                   reminderId: item.reminderId,
                   active: val,
